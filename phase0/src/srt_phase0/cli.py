@@ -3,10 +3,12 @@
   srt-phase0 auth start  --account you@gmail.com
   srt-phase0 auth finish --account you@gmail.com --redirect-url 'http://localhost:8765/?state=...&code=...'
   srt-phase0 auth revoke --account you@gmail.com
+  srt-phase0 check --accounts you@gmail.com   # preflight before a real run
   srt-phase0 run --source gmail --accounts a@gmail.com,b@gmail.com --provider openrouter
   srt-phase0 run --source fixtures --provider fake
   srt-phase0 judge-export --run data/runs/<id>
   srt-phase0 fixture-labels                 # synthetic truth -> labels file
+  srt-phase0 judge-check --run data/runs/<id>  # labels cover every exported email
   srt-phase0 score --run data/runs/<id> --labels data/judge/<id>/labels.jsonl
   srt-phase0 purge                          # delete judge batches (email bodies) and runs
 
@@ -125,6 +127,32 @@ def cmd_score(args) -> None:
     print(md)
 
 
+def cmd_check(args) -> None:
+    from .preflight import run_preflight
+
+    accounts = [a.strip() for a in args.accounts.split(",")] if args.accounts else []
+    checks = run_preflight(accounts, data_dir() / "auth")
+    for c in checks:
+        print(f"[{c.status}] {c.name}: {c.detail}")
+    failed = [c for c in checks if c.status == "FAIL"]
+    print(f"\n{len(failed)} failing check(s)." if failed else "\nReady for a real-inbox run.")
+    if failed:
+        sys.exit(1)
+
+
+def cmd_judge_check(args) -> None:
+    from .judge_check import check_labels
+
+    judge_dir = data_dir() / "judge" / Path(args.run).name
+    problems, n_exp, n_lab = check_labels(judge_dir)
+    print(f"{n_lab} labels for {n_exp} exported emails in {judge_dir}")
+    for p in problems:
+        print(" -", p)
+    if problems:
+        sys.exit(1)
+    print("Labels complete and consistent.")
+
+
 def cmd_purge(args) -> None:
     d = data_dir()
     targets = [d / "judge"] + ([] if args.judge_only else [d / "runs", d / "templates.json"])
@@ -174,7 +202,15 @@ def main(argv=None) -> None:
     s.add_argument("--labels", required=True)
     s.set_defaults(func=cmd_score)
 
-    pg = sub.add_parser("purge", help="delete judge batches (and, by default, runs and templates)")
+    c = sub.add_parser("check", help="preflight: keys, network, model capability, Gmail tokens")
+    c.add_argument("--accounts", help="comma-separated Gmail addresses whose tokens to test")
+    c.set_defaults(func=cmd_check)
+
+    jc = sub.add_parser("judge-check", help="validate labels.jsonl against exported batches")
+    jc.add_argument("--run", required=True)
+    jc.set_defaults(func=cmd_judge_check)
+
+    pg = sub.add_parser("purge",help="delete judge batches (and, by default, runs and templates)")
     pg.add_argument("--judge-only", action="store_true")
     pg.set_defaults(func=cmd_purge)
 

@@ -23,7 +23,7 @@ Status: **built and tested on synthetic data only.** No real inbox has been proc
 |---|---|---|
 | Built in Python by Claude, not Codex | D25 says the Phase 0 harness is Codex | **Departs from D25.** Founder's call in the build session |
 | Runs in a Claude Code cloud container | R9 requires India-region processing (written for production) | **Departs from R9 in spirit.** Raw email passes through a non-India container. Founder's call |
-| Operational model via OpenRouter (model chosen later) | Q2 open | Provider is swappable (R4). Requests ask OpenRouter for `data_collection: deny` and `zdr: true`. Verify these against OpenRouter's current docs before relying on them for R10 |
+| Operational model via OpenRouter (model chosen later) | Q2 open | Provider is swappable (R4). Requests ask OpenRouter for `data_collection: deny` and `zdr: true`. **Not yet verified** against OpenRouter's current docs (openrouter.ai is blocked by this environment's network policy). Verify before relying on them for R10 |
 | Reference labels by Claude (blind), not hand labels | §13 says "label by hand" | **Departs from §13.** Results measure agreement with Claude, not ground truth. See below |
 | Judge batches store email bodies | R9: raw bodies never persisted | Phase 0-only exception. Stored under gitignored `data/judge/`; delete with `srt-phase0 purge` |
 
@@ -31,7 +31,7 @@ Status: **built and tested on synthetic data only.** No real inbox has been proc
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e 'phase0[test]'
-cd phase0 && python -m pytest -q          # 45 tests, no network
+cd phase0 && python -m pytest -q          # 50 tests, no network
 
 # synthetic end-to-end (fake provider: exercises the code, NOT a result)
 srt-phase0 run --source fixtures --provider fake --today 2026-11-04 --run-id syn
@@ -41,12 +41,14 @@ srt-phase0 score --run data/runs/syn --labels data/judge/fixture-labels.jsonl
 
 ### Real inbox (once the OAuth client and OpenRouter key exist)
 
-1. Follow [docs/gmail-oauth-setup.md](docs/gmail-oauth-setup.md), then run `srt-phase0 auth start/finish` for each account.
-2. `srt-phase0 run --source gmail --accounts a@gmail.com,b@gmail.com --provider openrouter`
-3. `srt-phase0 judge-export --run data/runs/<id>`. This writes shuffled, blind batches of 25: about 300 triage-passed emails plus 100 triage-rejected ones (so triage recall can be measured).
-4. Claude reads `data/judge/<id>/RUBRIC.md`, labels each batch without seeing pipeline output, and writes `labels.jsonl`.
-5. `srt-phase0 score --run data/runs/<id> --labels data/judge/<id>/labels.jsonl` writes `scorecard.md`.
-6. `srt-phase0 purge` deletes the judge batches, runs and templates.
+1. **Network:** add `openrouter.ai` to the environment's allowed domains (environment menu in the session title bar → Edit → Network access). The default policy blocks it; Gmail and Google OAuth endpoints are already reachable.
+2. Follow [docs/gmail-oauth-setup.md](docs/gmail-oauth-setup.md), then run `srt-phase0 auth start/finish` for each account.
+3. `srt-phase0 check --accounts a@gmail.com,b@gmail.com`. All checks must pass before going further.
+4. `srt-phase0 run --source gmail --accounts a@gmail.com,b@gmail.com --provider openrouter`
+5. `srt-phase0 judge-export --run data/runs/<id>`. This writes shuffled, blind batches of 25: about 300 triage-passed emails plus 100 triage-rejected ones (so triage recall can be measured).
+6. Claude reads `data/judge/<id>/RUBRIC.md`, labels each batch without seeing pipeline output, and writes `labels.jsonl`. Then `srt-phase0 judge-check --run data/runs/<id>` confirms every email is labelled and the labels are consistent.
+7. `srt-phase0 score --run data/runs/<id> --labels data/judge/<id>/labels.jsonl` writes `scorecard.md`.
+8. `srt-phase0 purge` deletes the judge batches, runs and templates.
 
 ## How to read the scorecard
 
