@@ -10,6 +10,7 @@ An early-stage product concept to help people discover recurring subscriptions a
 | --- | --- | --- |
 | [PRD v1.1](docs/subscription-renewal-tracker-prd-v1-1.md) | Original decisions, P0 requirements, metrics, and risks | Original draft v1.1 |
 | [Product brief](docs/product-brief.md) | Problem, user hypothesis, proposed v1 scope, and open questions | Working draft |
+| [Competitor research](docs/competitor-research.md) | September 2026 competitor landscape and strategic takeaways | Archived snapshot; not refreshed |
 | [Flow review guide](docs/flow-review.md) | Navigation for the flow diagram and eight decisions requiring sign-off | Working draft |
 | [Flow diagram v0.1](artifacts/flow-diagram-v0-1.html) | Original, self-contained interactive HTML flow | Original artifact; awaiting sign-off |
 
@@ -30,11 +31,11 @@ The [original PRD v1.1](docs/subscription-renewal-tracker-prd-v1-1.md) and the v
 
 The PRD marks some regulatory and platform claims for verification. They were preserved as written, not independently revalidated as part of this upload.
 
-Earlier competitor research exists in a separate project conversation but has **not** been migrated verbatim. No research findings have been invented or attributed without the original text.
+The [competitor research](docs/competitor-research.md) has now been migrated from the [original shared conversation](https://chatgpt.com/share/6aeb0dfb-1c0c-83ec-b14d-b0ada3415cc6). The original analysis and confidence labels were preserved, and chat-specific citation markers were converted to direct source links. The research reflects **6 September 2026**; product features, adoption figures, and platform policies have not been rechecked since.
 
 ## Next steps
 
 1. Review and resolve the [eight flow sign-off questions](docs/flow-review.md).
-2. Add the original competitor-research write-up when available.
+2. Refresh time-sensitive competitor claims before using them for launch or positioning decisions.
 3. Validate the target-user and Gmail-only assumptions with potential users.
 4. Convert approved flows into implementation requirements and tests.
