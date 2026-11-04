@@ -1,0 +1,10 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Phase 0 working data: tokens, email metadata, judge batches with email bodies.
+# Never commit (R9, Google API user-data policy).
+data/
+phase0/data/

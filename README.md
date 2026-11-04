@@ -2,7 +2,7 @@
 
 An early-stage product concept to help people discover recurring subscriptions and trials, understand upcoming charges, and act before unwanted renewals.
 
-> **Status:** Product discovery / flow review. This repository does **not** contain a working application. The included flow diagram is v0.1 and is **awaiting sign-off**.
+> **Status:** Phase 0 (feasibility). The [Phase 0 pipeline](phase0/README.md) is built and tested on **synthetic data only**; it has not yet been run on a real inbox. There is no app. The flow diagram is v0.1 and is still **awaiting sign-off**.
 
 ## What's in this repository
 
@@ -13,6 +13,7 @@ An early-stage product concept to help people discover recurring subscriptions a
 | [Competitor research](docs/competitor-research.md) | September 2026 competitor landscape and strategic takeaways | Archived snapshot; not refreshed |
 | [Flow review guide](docs/flow-review.md) | Navigation for the flow diagram and eight decisions requiring sign-off | Working draft |
 | [Flow diagram v0.1](artifacts/flow-diagram-v0-1.html) | Original, self-contained interactive HTML flow | Original artifact; awaiting sign-off |
+| [Phase 0 pipeline](phase0/README.md) | Gmail search → triage → extraction → per-sender templates, plus judge and scorer for assumption A3 | Built; synthetic tests only |
 
 Open `artifacts/flow-diagram-v0-1.html` in a browser to review the flows. It covers account connection, first sync, detection, merging, unknown fields, alerts, cancellation/reactivation, ongoing detection, and deletion.
 
@@ -35,7 +36,8 @@ The [competitor research](docs/competitor-research.md) has now been migrated fro
 
 ## Next steps
 
-1. Review and resolve the [eight flow sign-off questions](docs/flow-review.md).
-2. Refresh time-sensitive competitor claims before using them for launch or positioning decisions.
-3. Validate the target-user and Gmail-only assumptions with potential users.
-4. Convert approved flows into implementation requirements and tests.
+1. Run Phase 0 on the founder inbox: set up the [Gmail OAuth client](phase0/docs/gmail-oauth-setup.md) and an OpenRouter key, then follow the [Phase 0 README](phase0/README.md).
+2. Review and resolve the [eight flow sign-off questions](docs/flow-review.md).
+3. Refresh time-sensitive competitor claims before using them for launch or positioning decisions.
+4. Validate the target-user and Gmail-only assumptions with potential users.
+5. Convert approved flows into implementation requirements and tests.
