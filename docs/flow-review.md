@@ -1,6 +1,6 @@
 # Flow diagram v0.1 — review guide
 
-> **Source:** The supplied [HTML artifact](../artifacts/flow-diagram-v0-1.html), dated 6 September 2026. The artifact describes itself as a first draft derived from PRD v1.1. **Nothing below records a sign-off.**
+> **Sources:** The original [PRD v1.1](subscription-renewal-tracker-prd-v1-1.md) and supplied [HTML artifact v0.1](../artifacts/flow-diagram-v0-1.html), both dated 6 September 2026. The HTML is a first-draft interpretation of the PRD. **Nothing below records a sign-off.**
 
 ## Sections
 
