@@ -1,6 +1,6 @@
 # Product brief — working draft
 
-> **Provenance:** Summarized from the project's stated problem and the supplied [flow diagram v0.1](../artifacts/flow-diagram-v0-1.html). This is **not** the original PRD v1.1 and does not imply the design has been approved.
+> **Provenance:** A secondary summary of the project's stated problem and supplied [flow diagram v0.1](../artifacts/flow-diagram-v0-1.html). The [original PRD v1.1](subscription-renewal-tracker-prd-v1-1.md) is the primary source for decisions and requirements. This brief does not replace it or imply sign-off.
 
 ## Problem
 
