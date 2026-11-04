@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscription Renewal Tracker — Flow diagram v0.1</title>
+<style>
+  :root{
+    --bg:#f3f5f7; --paper:#ffffff; --ink:#1b1f24; --ink-2:#4b5563; --line:#d5dae1;
+    --user:#2f6fed; --app:#1e9e6a; --server:#6b4fbb; --gmail:#d64545; --llm:#c77a0e; --ext:#6b7280;
+    --rule:#1b1f24;
+    --w:760px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:inherit}
+  .wrap{display:grid;grid-template-columns:240px 1fr;gap:0;min-height:100vh}
+  nav{position:sticky;top:0;height:100vh;overflow:auto;padding:24px 18px;border-right:1px solid var(--line);background:var(--paper)}
+  nav h1{font-size:15px;margin:0 0 4px}
+  nav .v{font-size:13px;color:var(--ink-2);margin-bottom:18px}
+  nav ol{list-style:none;padding:0;margin:0}
+  nav li{margin:0}
+  nav a{display:block;padding:6px 8px;border-radius:6px;text-decoration:none;font-size:14px;color:var(--ink-2)}
+  nav a:hover,nav a:focus-visible{background:var(--bg);color:var(--ink);outline:none}
+  nav a span{display:inline-block;width:26px;color:var(--ink);font-variant-numeric:tabular-nums}
+  main{padding:32px 40px 80px;max-width:calc(var(--w) + 80px)}
+  header.top h1{font-size:28px;line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
+  header.top p{margin:0 0 16px;color:var(--ink-2);max-width:60ch}
+  .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:0 0 20px}
+  .meta dt{color:var(--ink-2)} .meta dd{margin:0}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px;margin:0 0 8px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+  .legend .r{border:2px dashed var(--rule);background:#fff}
+  .legend .e{background:#fff;border:1px solid var(--line);border-left:4px solid var(--server)}
+  section{margin:44px 0 0;scroll-margin-top:16px}
+  section h2{font-size:21px;margin:0 0 4px;letter-spacing:-.01em}
+  section .why{color:var(--ink-2);margin:0 0 6px;max-width:64ch}
+  section .refs{font-size:13px;color:var(--ink-2);margin:0 0 18px}
+  section .refs code{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px}
+
+  /* flow */
+  .flow{display:flex;flex-direction:column;align-items:stretch;max-width:var(--w)}
+  .flow>*+*{margin-top:34px;position:relative}
+  .flow>*+*::before{content:"";position:absolute;left:50%;top:-34px;height:26px;width:2px;background:var(--ink-2);transform:translateX(-50%)}
+  .flow>*+*::after{content:"";position:absolute;left:50%;top:-10px;transform:translateX(-50%);border:6px solid transparent;border-top:8px solid var(--ink-2);border-bottom:0}
+  .n{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--ext);border-radius:6px;padding:10px 14px 10px 14px;position:relative}
+  .n .who{display:block;font-size:12px;color:var(--ink-2);margin-bottom:2px}
+  .n[data-a="user"]{border-left-color:var(--user)} .n[data-a="app"]{border-left-color:var(--app)}
+  .n[data-a="server"]{border-left-color:var(--server)} .n[data-a="gmail"]{border-left-color:var(--gmail)}
+  .n[data-a="llm"]{border-left-color:var(--llm)} .n[data-a="ext"]{border-left-color:var(--ext)}
+  .n b{font-weight:600}
+  .n ul{margin:6px 0 0 18px;padding:0;color:var(--ink-2);font-size:14px} .n li{margin:2px 0}
+  .n small{display:block;color:var(--ink-2);font-size:13px;margin-top:4px}
+  .term{background:var(--ink);color:#fff;border-radius:999px;padding:8px 16px;text-align:center;font-weight:600;align-self:center;min-width:180px}
+  .term.start{background:var(--paper);color:var(--ink);border:2px solid var(--ink)}
+  .goto{align-self:center;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px}
+  .goto a{text-decoration:none;font-weight:600}
+
+  /* decision */
+  .rule{border:2px dashed var(--rule);background:#fff;border-radius:6px;padding:10px 14px}
+  .rule .q{font-weight:600} .rule .q::before{content:"Rule";display:inline-block;font-size:12px;font-weight:600;color:#fff;background:var(--rule);border-radius:4px;padding:0 6px;margin-right:8px;vertical-align:middle}
+  .rule small{display:block;color:var(--ink-2);font-size:13px;margin-top:4px}
+  .br{display:grid;grid-template-columns:1fr 1fr;gap:20px;position:relative}
+  .br.three{grid-template-columns:1fr 1fr 1fr}
+  .br.four{grid-template-columns:1fr 1fr;}
+  .b{display:flex;flex-direction:column;position:relative}
+  .b>.bl{align-self:center;font-size:13px;font-weight:600;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 10px;margin-bottom:14px;position:relative}
+  .b>.bl::after{content:"";position:absolute;left:50%;bottom:-14px;height:14px;width:2px;background:var(--ink-2);transform:translateX(-50%)}
+  .b .flow{max-width:none}
+  .b .flow>*:first-child{margin-top:0}
+  .note{background:#fff8e6;border:1px solid #f0d9a0;border-radius:6px;padding:10px 14px;font-size:14px}
+  .note b{display:block;margin-bottom:2px}
+  .tbl{width:100%;border-collapse:collapse;font-size:14px;background:var(--paper);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:14px 0}
+  .tbl th,.tbl td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .tbl th{font-weight:600;background:var(--bg)}
+  .tbl tr:last-child td{border-bottom:0}
+  .review{border:2px solid var(--ink);border-radius:8px;padding:14px 16px;background:var(--paper);margin-top:44px}
+  .review h2{font-size:19px;margin:0 0 8px}
+  .review ol{margin:0;padding-left:20px} .review li{margin:6px 0}
+  .changelog{margin-top:32px;font-size:14px;color:var(--ink-2)}
+  .changelog h3{font-size:15px;color:var(--ink);margin:0 0 6px}
+  .changelog table{border-collapse:collapse;width:100%}
+  .changelog td{padding:4px 10px 4px 0;vertical-align:top;border-bottom:1px solid var(--line)}
+  /* system map */
+  .map{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:var(--w)}
+  .map .box{background:var(--paper);border:1px solid var(--line);border-top:5px solid var(--ext);border-radius:6px;padding:10px 12px;font-size:14px}
+  .map .box b{display:block;margin-bottom:4px}
+  .map .box ul{margin:0;padding-left:16px;color:var(--ink-2)}
+  .map .box[data-a="user"]{border-top-color:var(--user)} .map .box[data-a="app"]{border-top-color:var(--app)}
+  .map .box[data-a="server"]{border-top-color:var(--server)} .map .box[data-a="gmail"]{border-top-color:var(--gmail)}
+  .map .box[data-a="llm"]{border-top-color:var(--llm)}
+  .map .wide{grid-column:1/-1}
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr}
+    nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
+    nav ol{display:grid;grid-template-columns:1fr 1fr}
+    main{padding:20px 16px 60px}
+    .br,.br.three,.br.four{grid-template-columns:1fr}
+    .map{grid-template-columns:1fr}
+    header.top h1{font-size:23px}
+  }
+  @media print{nav{display:none}.wrap{display:block}main{max-width:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav aria-label="Use cases">
+  <h1>Flow diagram</h1>
+  <div class="v">v0.1 — for review</div>
+  <ol>
+    <li><a href="#uc0"><span>0</span>System map</a></li>
+    <li><a href="#uc1"><span>1</span>Connect Gmail</a></li>
+    <li><a href="#uc2"><span>2</span>First sync</a></li>
+    <li><a href="#uc3"><span>3</span>Detection funnel</a></li>
+    <li><a href="#uc4"><span>4</span>Merge &amp; field states</a></li>
+    <li><a href="#uc5"><span>5</span>Resolve unknowns</a></li>
+    <li><a href="#uc6"><span>6</span>Alerts</a></li>
+    <li><a href="#uc7"><span>7</span>Cancel &amp; reactivate</a></li>
+    <li><a href="#uc8"><span>8</span>Continuous detection</a></li>
+    <li><a href="#uc9"><span>9</span>Disconnect &amp; delete</a></li>
+    <li><a href="#review"><span>—</span>Points for sign-off</a></li>
+    <li><a href="#changelog"><span>—</span>Change log</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <h1>Subscription Renewal Tracker<br>Use-case flows with decision rules</h1>
+  <p>Every diamond-equivalent below is a dashed "Rule" box that states the exact condition and where each branch goes. If a behaviour isn't on this page, the system shouldn't do it.</p>
+  <dl class="meta">
+    <dt>Version</dt><dd>0.1 — first draft for review, 6 Sep 2026</dd>
+    <dt>Source</dt><dd>PRD v1.1 (decisions D1–D31, requirements R1–R10)</dd>
+    <dt>Status</dt><dd>Awaiting sign-off. Points where the diagram had to choose beyond the PRD are collected under <a href="#review">Points for sign-off</a>.</dd>
+  </dl>
+  <div class="legend">
+    <span><i style="background:var(--user)"></i>User</span>
+    <span><i style="background:var(--app)"></i>Mobile app</span>
+    <span><i style="background:var(--server)"></i>Our server (India region)</span>
+    <span><i style="background:var(--gmail)"></i>Gmail API</span>
+    <span><i style="background:var(--llm)"></i>LLM provider</span>
+    <span><i style="background:var(--ext)"></i>Other external</span>
+    <span><i class="r"></i>Decision rule</span>
+  </div>
+</header>
+
+<!-- 0 -->
+<section id="uc0">
+  <h2>0. System map</h2>
+  <p class="why">Who talks to whom, and what is stored where. Nothing else exists in v1.</p>
+  <p class="refs">Refs: <code>D4</code> <code>D8</code> <code>D12</code> <code>D23</code> <code>D30</code> <code>R9</code> <code>R10</code></p>
+  <div class="map">
+    <div class="box" data-a="user"><b>User</b><ul><li>Adult in India, 1+ Gmail accounts</li><li>Acts via app screens and alerts</li></ul></div>
+    <div class="box" data-a="app"><b>Mobile app (iOS + Android)</b><ul><li>Disclosure + OAuth handoff</li><li>List, evidence, unknowns card, bottom sheet</li><li>Receives push; no email parsing on device</li></ul></div>
+    <div class="box" data-a="server"><b>Our server, India region</b><ul><li>Runs the funnel, merges records, schedules alerts</li><li>Stores extracted fields + snippets, encrypted; never raw email</li><li>Sends push (via APNs/FCM) and fallback email</li></ul></div>
+    <div class="box" data-a="gmail"><b>Gmail API</b><ul><li>Scope: gmail.readonly only</li><li>Search (stage 1), fetch, history, Pub/Sub watch</li></ul></div>
+    <div class="box" data-a="llm"><b>LLM provider (TBD, Q2)</b><ul><li>Stage 3 triage, stage 4 extraction</li><li>Zero-retention terms; receives minimal content only</li></ul></div>
+    <div class="box" data-a="ext"><b>Other external</b><ul><li>APNs / FCM for push</li><li>Transactional email service for T−1/T−0 fallback</li></ul></div>
+    <div class="box wide" data-a="server"><b>Not in v1</b><ul><li>Bank / card / SMS / UPI-app / app-store data · on-device inference · non-Gmail providers · multi-region · currency conversion</li></ul></div>
+  </div>
+</section>
+
+<!-- 1 -->
+<section id="uc1">
+  <h2>1. Connect a Gmail account</h2>
+  <p class="why">From first open to a connected account with a live watch and a running first sync. Also used for adding a second account.</p>
+  <p class="refs">Refs: <code>R1</code> <code>D8</code> <code>D16</code> <code>Section 10</code></p>
+  <div class="flow">
+    <div class="term start">Open app (new or adding an account)</div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Create or sign in to app account</b><small>App account is separate from Gmail; it owns the merged list and the fallback email address.</small></div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Show disclosure screen</b>
+      <ul><li>What we read: your Gmail messages (read-only)</li><li>What we store: merchant, amount, dates, and the sentence they came from — never the email itself</li><li>What we send out: message text to an AI provider, only to extract those fields; it isn't kept or trained on</li><li>Who can see it: no human, unless you ask us to for support and approve it</li><li>Data lives in India; delete everything any time</li></ul>
+      <small>Must appear immediately before the Google handoff. Not in settings, not only in ToS.</small></div>
+    <div class="rule"><div class="q">Did the user tap "I understand, continue"?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Stay on screen; no Google request is made</div></div></div>
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="n" data-a="gmail"><span class="who">Gmail (Google consent screen)</span><b>OAuth request for gmail.readonly only</b><small>No other scope is ever requested.</small></div>
+        <div class="rule"><div class="q">Did Google return a grant with gmail.readonly?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">No / partial</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Explain what's missing and offer to retry</b><small>Partial grants are treated as no grant.</small></div><div class="term">Nothing connected</div></div></div>
+          <div class="b"><div class="bl">Yes</div><div class="flow">
+            <div class="n" data-a="server"><span class="who">Server</span><b>Store token encrypted (KMS key); create account record</b></div>
+            <div class="rule"><div class="q">Is this Gmail address already connected to this app account?</div></div>
+            <div class="br">
+              <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Replace token; no new sync</b></div></div></div>
+              <div class="b"><div class="bl">No</div><div class="flow">
+                <div class="n" data-a="server"><span class="who">Server</span><b>Register Gmail watch (Pub/Sub)</b><small>See use case 8.</small></div>
+                <div class="goto">Start <a href="#uc2">2. First sync</a> for this account</div>
+              </div></div>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="uc2">
+  <h2>2. First sync</h2>
+  <p class="why">Scan 24 months, newest-first, and show results as they arrive. Targets: first record within 30 s; ≤ 2,000 matches complete within 10 min.</p>
+  <p class="refs">Refs: <code>R2</code> <code>D14</code> <code>D29</code> <code>M4</code></p>
+  <div class="flow">
+    <div class="term start">Account connected (from use case 1)</div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>Load stage-1 query set (versioned)</b><small>Subject/body terms (receipt, invoice, trial, renewal, subscription, payment confirmation…) and sender patterns (billing@, noreply@…).</small></div>
+    <div class="n" data-a="gmail"><span class="who">Gmail API</span><b>Search: query set, date ≥ today − 24 months, newest-first, paged</b><small>Returns only matching message IDs. Non-matching mail is never fetched.</small></div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>Count total matches N (from result set size)</b></div>
+    <div class="rule"><div class="q">Is N ≤ 2,000?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Show progress "Scanning…"</b><small>Internal target: complete within 10 min.</small></div></div></div>
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Show progress + "Large inbox — this may take a while. You can use the app meanwhile."</b></div></div></div>
+    </div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>For each page of matches, newest first: run use case 3 on every message</b><small>Pages processed in order; extraction calls run in parallel within a page.</small></div>
+    <div class="rule"><div class="q">Has the first subscription record been created?</div><small>Checked after each record write.</small></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes, first time</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Replace progress-only screen with the live list; keep progress bar at top</b><small>Target: ≤ 30 s from connection. Newest-first ordering makes this likely.</small></div></div></div>
+      <div class="b"><div class="bl">Already shown</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Append new records to the list as they arrive</b></div></div></div>
+    </div>
+    <div class="rule"><div class="q">All pages processed?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="goto">Continue with next page</div></div></div>
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="n" data-a="server"><span class="who">Server</span><b>Record first-sync metrics</b><ul><li>N, stage-3 pass count, stage-4 call count (M8 pass rate)</li><li>Records created; % with next date confirmed / estimated / unknown (M4)</li><li>Time to first record; time to complete</li></ul></div>
+        <div class="n" data-a="app"><span class="who">Mobile app</span><b>Progress bar disappears; home shows list + the single top unknown card</b><small>See use case 5. The full unknowns list is never the default view.</small></div>
+        <div class="term">First sync complete</div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="uc3">
+  <h2>3. Detection funnel (per matched email)</h2>
+  <p class="why">Each stage is cheaper than the next and discards most of what it sees. The LLM only sees survivors, and only once per sender template where possible.</p>
+  <p class="refs">Refs: <code>R4</code> <code>D23</code> <code>D24</code> <code>M8</code> · Stage 2 (billing-platform templates) is P1 and not shown.</p>
+  <div class="flow">
+    <div class="term start">One message ID from stage 1 (first sync or use case 8)</div>
+    <div class="n" data-a="gmail"><span class="who">Gmail API</span><b>Fetch headers + snippet (metadata format)</b><small>Sender address, subject, date, ~200-char snippet. Body not fetched yet.</small></div>
+    <div class="rule"><div class="q">Is there a cached extractor for this sender (stage 5)?</div><small>Keyed on normalised sender domain + template signature.</small></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="n" data-a="gmail"><span class="who">Gmail API</span><b>Fetch body</b></div>
+        <div class="n" data-a="server"><span class="who">Server</span><b>Apply cached extractor (no LLM call)</b></div>
+        <div class="rule"><div class="q">Does the email's structure match the template, and is every field the template previously found still found?</div><small>If a field it used to find is now unknown, the merchant may have changed its receipt layout.</small></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="goto">Go to <a href="#uc4">4. Merge</a> with fields</div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Mark cached extractor stale; fall through to stage 3</b></div></div></div>
+        </div>
+      </div></div>
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="goto">Continue to stage 3</div></div></div>
+    </div>
+    <div class="n" data-a="llm"><span class="who">LLM provider (small model)</span><b>Stage 3 triage: subject + snippet → "subscription-related: yes / no"</b><small>Tiny prompt; no body sent.</small></div>
+    <div class="rule"><div class="q">Triage says yes?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Discard; increment "stage-3 rejected" counter</b><small>Message ID is remembered so it isn't re-triaged.</small></div><div class="term">Done</div></div></div>
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="n" data-a="gmail"><span class="who">Gmail API</span><b>Fetch body (text part); truncate to ~1,500 tokens</b></div>
+        <div class="rule"><div class="q">Does the body contain no currency amount at all, and is there a PDF attachment?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Extract attachment text (first page); append to input</b></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="goto">Use body only</div></div></div>
+        </div>
+        <div class="n" data-a="llm"><span class="who">LLM provider (extraction model)</span><b>Stage 4: structured extraction (JSON schema)</b>
+          <ul><li>Email type: trial-signup / receipt / renewal-reminder / cancellation-confirmation / price-change / other</li><li>merchant, amount + currency, charge date, billing period, trial end date, next charge date if stated, cancel link/instructions</li><li>For each field: value, state (confirmed / unknown), and the sentence it came from</li></ul>
+          <small>Prompt treats email content as untrusted; instructions inside the email are ignored.</small></div>
+        <div class="rule"><div class="q">Did extraction return a merchant and at least one of (amount, a date)?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Discard; log as "stage-4 empty" for eval</b></div><div class="term">Done</div></div></div>
+          <div class="b"><div class="bl">Yes</div><div class="flow">
+            <div class="n" data-a="server"><span class="who">Server</span><b>Stage 5: cache an extractor for this sender template</b><small>Stores the field locations/patterns the LLM used, keyed by sender + template signature.</small></div>
+            <div class="goto">Go to <a href="#uc4">4. Merge</a> with fields + email type</div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="uc4">
+  <h2>4. Merge into a record and assign field states</h2>
+  <p class="why">Where "confirmed / estimated / unknown" is decided, and where each email type is routed. This is the logic most likely to be silently mis-implemented.</p>
+  <p class="refs">Refs: <code>6.1</code> <code>6.2</code> <code>D5</code> <code>D6</code> <code>D7</code> <code>D16</code></p>
+  <div class="flow">
+    <div class="term start">Extracted fields + email type (from use case 3)</div>
+    <div class="rule"><div class="q">What is the email type?</div></div>
+    <div class="br three">
+      <div class="b"><div class="bl">Cancellation confirmation</div><div class="flow"><div class="goto">Go to <a href="#uc7">7. Cancel</a> (merchant-email path)</div></div></div>
+      <div class="b"><div class="bl">Price change</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Update amount (confirmed); log price-change event</b><small>Distinct alert is P1.</small></div></div></div>
+      <div class="b"><div class="bl">Trial signup / receipt / reminder</div><div class="flow"><div class="goto">Continue below</div></div></div>
+    </div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>Find existing record: same normalised merchant, any connected account of this user</b></div>
+    <div class="rule"><div class="q">Record exists?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Create record; set source_account; kind from email type</b></div></div></div>
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="rule"><div class="q">Is the record in a cancelled or likely-cancelled state and this email is a receipt?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="goto">Go to <a href="#uc7">7. Reactivate</a></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Merge: the most recent receipt wins amount and last_charge_date</b></div></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>For each incoming field, apply the conflict rule</b>
+      <ul><li>Existing field <b>estimated</b> and new value differs → overwrite with new value</li><li>Existing field <b>confirmed</b> and new value differs → keep existing, flag "conflict" for the user to resolve in the evidence view</li><li>Existing field unknown → take the new value</li></ul></div>
+    <div class="rule"><div class="q">Does the email state the next charge date explicitly?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>next_charge_date = <b>confirmed</b></b></div></div></div>
+      <div class="b"><div class="bl">No</div><div class="flow">
+        <div class="rule"><div class="q">Is there a confirmed anchor date (last_charge_date or sign-up date) AND a confirmed billing period?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>next_charge_date = anchor + period, state <b>estimated</b></b></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>next_charge_date = <b>unknown</b>; lifecycle = unknown_date</b></div><div class="goto">Enters <a href="#uc5">5. Unknowns</a> queue</div></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="rule"><div class="q">Is this a trial, and is the trial length or end date stated?</div></div>
+    <div class="br three">
+      <div class="b"><div class="bl">Trial, stated</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>trial_end_date = confirmed; this becomes next_charge_date</b></div></div></div>
+      <div class="b"><div class="bl">Trial, not stated</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>trial_end_date = <b>unknown</b>. Never estimated.</b></div></div></div>
+      <div class="b"><div class="bl">Not a trial</div><div class="flow"><div class="goto">Skip</div></div></div>
+    </div>
+    <div class="rule"><div class="q">Is lifecycle active or cancellation_pending, and next_charge_date confirmed or estimated?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes</div><div class="flow"><div class="goto">Go to <a href="#uc6">6. Alerts</a> — (re)schedule ladder</div></div></div>
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Record saved; no alert scheduled</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="uc5">
+  <h2>5. Resolve unknowns</h2>
+  <p class="why">One card, one question, one tap. The user supplies the billing period; the system derives the date.</p>
+  <p class="refs">Refs: <code>R6</code> <code>D22</code> <code>D7</code> <code>M3</code> <code>M4</code></p>
+  <div class="flow">
+    <div class="term start">Records with next_charge_date = unknown</div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>Order the queue by expected damage</b>
+      <ul><li>1. kind = trial or period = annual</li><li>2. then amount, descending (compared as stated; no currency conversion)</li><li>3. then period = monthly</li><li>4. then period = unknown</li></ul></div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Home shows the top item as one card: "Do you know how often [merchant] bills you?"</b><small>Unresolved count shown as a small counter. The full list is reachable, never the default.</small></div>
+    <div class="n" data-a="user"><span class="who">User</span><b>Taps the card</b></div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Bottom sheet</b>
+      <ul><li>Merchant, amount if known, source account</li><li>Evidence snippet from the email</li><li>"We couldn't find a renewal date in this email."</li><li>Buttons: <b>Monthly</b> · <b>Annual</b> · <b>Not a subscription</b> · <b>Skip</b> · (secondary) Enter a date</li><li>Dates inside the snippet are tappable</li></ul></div>
+    <div class="rule"><div class="q">Which action did the user take?</div></div>
+    <div class="br three">
+      <div class="b"><div class="bl">Monthly / Annual</div><div class="flow">
+        <div class="n" data-a="server"><span class="who">Server</span><b>billing_period = confirmed (user-stated)</b></div>
+        <div class="rule"><div class="q">Is a confirmed anchor date available?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>next_charge_date = anchor + period, <b>estimated</b></b></div><div class="goto">Leave queue → <a href="#uc6">6. Alerts</a></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Ask "When was the last charge, or when does it renew?"</b></div><div class="n" data-a="server"><span class="who">Server</span><b>Entered date → <b>confirmed</b></b></div><div class="goto">Leave queue → <a href="#uc6">6. Alerts</a></div></div></div>
+        </div>
+      </div></div>
+      <div class="b"><div class="bl">Enter a date / tap a date in snippet</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>next_charge_date = <b>confirmed</b></b><small>If tapped from the snippet, also log "parser miss" for eval.</small></div><div class="goto">Leave queue → <a href="#uc6">6. Alerts</a></div></div></div>
+      <div class="b"><div class="bl">Not a subscription / Skip</div><div class="flow">
+        <div class="rule"><div class="q">Which one?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Not a subscription</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Dismiss record; suppress this merchant for this user; log false positive (M3)</b></div></div></div>
+          <div class="b"><div class="bl">Skip</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Move to back of its damage tier; do not re-show before the next session</b></div></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Show the next card, or none if the queue is empty</b></div>
+    <div class="note"><b>Side rule — new email arrives for a queued merchant</b>Re-run use case 3 → 4 on it before the card is shown again. If the new email resolves the date, the card never appears.</div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="uc6">
+  <h2>6. Alerts</h2>
+  <p class="why">Scheduling the ladder and delivering each step. Push for everything; email as well for the last two steps, always.</p>
+  <p class="refs">Refs: <code>R7</code> <code>D13</code> <code>D19</code> <code>D20</code> <code>D28</code> <code>M5</code></p>
+  <div class="flow">
+    <div class="term start">next_charge_date set or changed, lifecycle active or cancellation_pending</div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>Cancel any existing scheduled steps for this record</b></div>
+    <div class="rule"><div class="q">Is billing_period = monthly?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Schedule T−1 and T−0</b></div></div></div>
+      <div class="b"><div class="bl">No (annual, trial, other, unknown period)</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Schedule T−7, T−3, T−1, T−0</b><small>Steps already in the past are skipped, not sent late.</small></div></div></div>
+    </div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>At each scheduled step, at 09:00 local time</b></div>
+    <div class="rule"><div class="q">Is the record still in active or cancellation_pending, and not muted?</div></div>
+    <div class="br">
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Skip this step</div></div></div>
+      <div class="b"><div class="bl">Yes</div><div class="flow">
+        <div class="n" data-a="ext"><span class="who">Push (APNs / FCM)</span><b>Send push: "[Merchant] charges [amount] on [date]" + "estimated" tag if applicable + cancel link if known</b><small>If cancellation_pending: "You marked this cancelled — no confirmation from [merchant] yet."</small></div>
+        <div class="rule"><div class="q">Is this step T−1 or T−0?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="ext"><span class="who">Transactional email</span><b>Also send the same alert by email to the app-account address</b><small>Always, regardless of push status.</small></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="goto">Push only</div></div></div>
+        </div>
+        <div class="n" data-a="server"><span class="who">Server</span><b>Record sent / delivered / opened per channel (M5)</b></div>
+      </div></div>
+    </div>
+    <div class="rule"><div class="q">What does the user do from the alert?</div></div>
+    <div class="br four">
+      <div class="b"><div class="bl">Open cancel link</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Open merchant's cancel path in browser</b></div></div></div>
+      <div class="b"><div class="bl">"I cancelled"</div><div class="flow"><div class="goto">Go to <a href="#uc7">7. Cancel</a></div></div></div>
+      <div class="b"><div class="bl">Mute this subscription</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Suppress all steps for this record until unmuted</b></div></div></div>
+      <div class="b"><div class="bl">Correct the date</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Date = confirmed; return to top of this use case</b></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="uc7">
+  <h2>7. Cancellation and reactivation</h2>
+  <p class="why">The user's tap is an intention, not evidence. Only the merchant's email or the user's explicit force-confirm ends the alerts — and nothing is ever deleted.</p>
+  <p class="refs">Refs: <code>R8</code> <code>6.3</code> <code>D9</code> <code>D10</code> <code>D11</code> <code>D26</code> <code>M1</code></p>
+  <table class="tbl">
+    <tr><th>State</th><th>Alerts</th><th>Shown as</th></tr>
+    <tr><td>active</td><td>Yes</td><td>Normal</td></tr>
+    <tr><td>cancellation_pending</td><td><b>Yes</b></td><td>"You marked this cancelled — awaiting confirmation"</td></tr>
+    <tr><td>cancelled (confirmed)</td><td>No</td><td>"Cancelled — confirmed by [merchant] on [date]"</td></tr>
+    <tr><td>likely_cancelled</td><td>No</td><td>"Likely cancelled — no charge seen" + button "Confirm it's cancelled"</td></tr>
+    <tr><td>cancelled (user-confirmed)</td><td>No</td><td>"Cancelled — confirmed by you"</td></tr>
+  </table>
+  <div class="flow">
+    <div class="term start">Three entry points</div>
+    <div class="br three">
+      <div class="b"><div class="bl">A — User taps "I cancelled"</div><div class="flow">
+        <div class="n" data-a="server"><span class="who">Server</span><b>active → cancellation_pending. Alerts continue.</b></div>
+        <div class="n" data-a="app"><span class="who">Mobile app</span><b>Offer "Confirm without merchant email" (force-confirm) as a secondary action</b></div>
+        <div class="rule"><div class="q">Did the user force-confirm?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="app"><span class="who">Mobile app</span><b>Warning: "We have no email from [merchant] confirming this. If they charge you, we'll tell you."</b></div><div class="n" data-a="server"><span class="who">Server</span><b>→ cancelled (user-confirmed); alerts stop</b></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="goto">Wait for B or C</div></div></div>
+        </div>
+      </div></div>
+      <div class="b"><div class="bl">B — Merchant email arrives (from use case 4)</div><div class="flow">
+        <div class="rule"><div class="q">Is it a cancellation confirmation, not a win-back offer?</div><small>Open question Q7; needs labelled examples. Win-back = "sorry to see you go, here's 50% off".</small></div>
+        <div class="br">
+          <div class="b"><div class="bl">Confirmation</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>→ cancelled (confirmed); alerts stop</b><small>Applies from active or cancellation_pending.</small></div></div></div>
+          <div class="b"><div class="bl">Win-back / unclear</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>No state change; attach as evidence</b></div></div></div>
+        </div>
+      </div></div>
+      <div class="b"><div class="bl">C — Expected charge date passes</div><div class="flow">
+        <div class="rule"><div class="q">Was a receipt for this merchant seen on or after the expected date (any connected account)?</div><small>Checked at T+3 days to allow for late receipts.</small></div>
+        <div class="br">
+          <div class="b"><div class="bl">No</div><div class="flow">
+            <div class="rule"><div class="q">Was the record in cancellation_pending?</div></div>
+            <div class="br">
+              <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>→ likely_cancelled; alerts stop</b></div></div></div>
+              <div class="b"><div class="bl">No (was active)</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Stay active; roll next_charge_date forward by one period, state estimated; flag "no receipt seen for last date"</b><small>See sign-off point 2.</small></div></div></div>
+            </div>
+          </div></div>
+          <div class="b"><div class="bl">Yes</div><div class="flow">
+            <div class="rule"><div class="q">Was the record in cancellation_pending?</div></div>
+            <div class="br">
+              <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>→ active; notify "[Merchant] charged you although you marked it cancelled"</b><small>Not counted in M1 — an alert was delivered. See sign-off point 3.</small></div></div></div>
+              <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Normal receipt → merge (use case 4); next date advances</b></div></div></div>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="term start">From likely_cancelled</div>
+    <div class="n" data-a="user"><span class="who">User</span><b>Taps "Confirm it's cancelled"</b></div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>→ cancelled (user-confirmed)</b></div>
+    <div class="term start">Reactivation — a receipt arrives for any cancelled / likely record</div>
+    <div class="n" data-a="server"><span class="who">Server</span><b>→ active; merge fields; reschedule ladder from the new date</b></div>
+    <div class="n" data-a="app"><span class="who">Mobile app</span><b>Ask once: "[Merchant] charged you [amount] again. Did you re-subscribe?"</b></div>
+    <div class="rule"><div class="q">Answer?</div></div>
+    <div class="br three">
+      <div class="b"><div class="bl">Yes</div><div class="flow"><div class="term">Normal tracking resumes</div></div></div>
+      <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Log surprise charge (M1); show cancel path in the alert and the record</b></div></div></div>
+      <div class="b"><div class="bl">No answer</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Tracking resumes; question stays on the record until answered; not counted in M1</b></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="uc8">
+  <h2>8. Continuous detection</h2>
+  <p class="why">After first sync, Gmail tells us when an inbox changes. We process new mail within 5 minutes and never lose the watch.</p>
+  <p class="refs">Refs: <code>R3</code> <code>D15</code> <code>D27</code></p>
+  <div class="flow">
+    <div class="term start">Account connected; watch registered (expires in 7 days)</div>
+    <div class="br">
+      <div class="b"><div class="bl">Renewal job, daily</div><div class="flow">
+        <div class="rule"><div class="q">Does any watch expire within 48 hours?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="gmail"><span class="who">Gmail API</span><b>Re-register watch</b></div>
+            <div class="rule"><div class="q">Succeeded?</div></div>
+            <div class="br">
+              <div class="b"><div class="bl">Yes</div><div class="flow"><div class="term">Done</div></div></div>
+              <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Retry hourly; if token revoked → mark account "needs reconnect", notify user</b></div></div></div>
+            </div>
+          </div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Nothing to do</div></div></div>
+        </div>
+      </div></div>
+      <div class="b"><div class="bl">Pub/Sub notification arrives</div><div class="flow">
+        <div class="n" data-a="gmail"><span class="who">Gmail API</span><b>history.list from last stored history_id</b></div>
+        <div class="rule"><div class="q">Did Gmail return "history_id too old" (watch lapsed or long gap)?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Catch-up scan: stage-1 search since last successful processing time</b></div></div></div>
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Collect new message IDs from history</b></div></div></div>
+        </div>
+        <div class="rule"><div class="q">For each new message: does it match the stage-1 query set?</div><small>Same query applied locally to headers/snippet, so stage 1 stays the single gate.</small></div>
+        <div class="br">
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Ignore</div></div></div>
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="goto">Run <a href="#uc3">3. Funnel</a> → <a href="#uc4">4. Merge</a></div><div class="n" data-a="server"><span class="who">Server</span><b>Store new history_id. Target: app updated within 5 min of arrival.</b></div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="uc9">
+  <h2>9. Disconnect an account, delete everything, support access</h2>
+  <p class="why">Leaving is one action. Support never sees content without the user's say-so.</p>
+  <p class="refs">Refs: <code>R1</code> <code>R9</code> <code>R10</code></p>
+  <div class="flow">
+    <div class="term start">User action in settings</div>
+    <div class="br three">
+      <div class="b"><div class="bl">Disconnect one Gmail account</div><div class="flow">
+        <div class="n" data-a="server"><span class="who">Server</span><b>Stop watch; revoke token with Google; delete token</b></div>
+        <div class="n" data-a="server"><span class="who">Server</span><b>Delete all records and evidence with source_account = this account; cancel their scheduled alerts</b><small>Within 24 h; merged records lose only this account's evidence — see sign-off point 4.</small></div>
+        <div class="n" data-a="app"><span class="who">Mobile app</span><b>Confirm "Disconnected. Data from this account deleted."</b></div>
+      </div></div>
+      <div class="b"><div class="bl">Delete app account</div><div class="flow">
+        <div class="n" data-a="app"><span class="who">Mobile app</span><b>Confirm: "This deletes all subscriptions, alerts, and Gmail connections."</b></div>
+        <div class="n" data-a="server"><span class="who">Server</span><b>For every account: stop watch, revoke token. Delete all records, evidence, tokens, metrics keyed to the user</b><small>Within 24 h. Aggregated, non-identifying metrics are retained.</small></div>
+        <div class="n" data-a="ext"><span class="who">Transactional email</span><b>Send confirmation of deletion</b></div>
+      </div></div>
+      <div class="b"><div class="bl">Support needs to see a record</div><div class="flow">
+        <div class="n" data-a="app"><span class="who">Mobile app</span><b>User receives in-app request: "Support asks to view [merchant] record to help with your ticket. Allow?"</b></div>
+        <div class="rule"><div class="q">Did the user allow?</div></div>
+        <div class="br">
+          <div class="b"><div class="bl">No</div><div class="flow"><div class="term">Support sees nothing</div></div></div>
+          <div class="b"><div class="bl">Yes</div><div class="flow"><div class="n" data-a="server"><span class="who">Server</span><b>Time-limited view of that record only; consent logged with ticket ID</b></div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- review -->
+<div class="review" id="review">
+  <h2>Points for sign-off</h2>
+  <p style="margin:0 0 8px;color:var(--ink-2)">Places where drawing the flow forced a choice the PRD didn't make. Each is my proposal; accept, change, or debate.</p>
+  <ol>
+    <li><b>Alert send time.</b> Steps fire at 09:00 in the user's local time rather than at the exact minute the date was set. Reason: a 03:00 push is noise; a morning one is actionable.</li>
+    <li><b>Active subscription, date passes, no receipt seen (7C).</b> Proposed: stay active, roll the estimated date forward one period, and flag "no receipt seen for last date" on the record. Alternative: move it to likely_cancelled. Rolling forward errs toward keeping a warning alive; moving to likely_cancelled errs toward a quieter list. The PRD only defined this branch for cancellation_pending.</li>
+    <li><b>Charged while cancellation_pending (7C).</b> Proposed: return to active and notify "charged although you marked it cancelled", but do <em>not</em> count it in M1, because an alert was delivered. Alternative: count it anyway as a stricter definition of surprise.</li>
+    <li><b>Disconnecting one account when a record was merged from two.</b> Proposed: delete only that account's evidence and keep the record if the other account still has evidence for it. Alternative: delete the whole record.</li>
+    <li><b>Receipt lookback for "no receipt seen" (7C).</b> Proposed: check at T+3 days, to tolerate late receipts. Alternative: check on T+0 and risk false "likely cancelled".</li>
+    <li><b>Attachments (3).</b> Proposed: extract the first page of a PDF only when the body has no amount at all. Keeps LLM input small; may miss amounts buried on page 2.</li>
+    <li><b>Re-subscribe question left unanswered (7).</b> Proposed: tracking resumes, the question stays on the record, and it is not counted in M1 until answered.</li>
+    <li><b>Partial OAuth grant (1).</b> Treated as no grant. Google allows users to untick scopes; with only one scope requested this should be rare, but the branch exists.</li>
+  </ol>
+</div>
+
+<div class="changelog" id="changelog">
+  <h3>Change log</h3>
+  <table>
+    <tr><td>v0.1</td><td>6 Sep 2026</td><td>First draft from PRD v1.1. Nine use cases + system map. Eight sign-off points raised.</td></tr>
+  </table>
+</div>
+</main>
+</div>
+</body>
+</html>
