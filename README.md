@@ -8,6 +8,7 @@ An early-stage product concept to help people discover recurring subscriptions a
 
 | File | Purpose | Status |
 | --- | --- | --- |
+| [PRD v1.1](docs/subscription-renewal-tracker-prd-v1-1.md) | Original decisions, P0 requirements, metrics, and risks | Original draft v1.1 |
 | [Product brief](docs/product-brief.md) | Problem, user hypothesis, proposed v1 scope, and open questions | Working draft |
 | [Flow review guide](docs/flow-review.md) | Navigation for the flow diagram and eight decisions requiring sign-off | Working draft |
 | [Flow diagram v0.1](artifacts/flow-diagram-v0-1.html) | Original, self-contained interactive HTML flow | Original artifact; awaiting sign-off |
@@ -25,13 +26,15 @@ See the [product brief](docs/product-brief.md) for scope and unresolved question
 
 ## Source and migration status
 
-The v0.1 flow diagram is dated **6 September 2026** and states that it was derived from **PRD v1.1** (decisions D1–D31 and requirements R1–R10). That PRD has **not** been supplied to this repository, so the documents here should not be treated as a substitute for it.
+The [original PRD v1.1](docs/subscription-renewal-tracker-prd-v1-1.md) and the v0.1 flow diagram are both dated **6 September 2026**. The PRD documents decisions D1–D31 and requirements R1–R10. The PRD is a **draft**, and the flow remains **awaiting sign-off**. The brief and review guide summarize these sources; they do not supersede them.
+
+The PRD marks some regulatory and platform claims for verification. They were preserved as written, not independently revalidated as part of this upload.
 
 Earlier competitor research exists in a separate project conversation but has **not** been migrated verbatim. No research findings have been invented or attributed without the original text.
 
 ## Next steps
 
 1. Review and resolve the [eight flow sign-off questions](docs/flow-review.md).
-2. Add the original PRD v1.1 and competitor-research write-up when available.
+2. Add the original competitor-research write-up when available.
 3. Validate the target-user and Gmail-only assumptions with potential users.
 4. Convert approved flows into implementation requirements and tests.
