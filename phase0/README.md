@@ -31,7 +31,7 @@ Status: **built and tested on synthetic data only.** No real inbox has been proc
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e 'phase0[test]'
-cd phase0 && python -m pytest -q          # 50 tests, no network
+cd phase0 && python -m pytest -q          # 52 tests, no network
 
 # synthetic end-to-end (fake provider: exercises the code, NOT a result)
 srt-phase0 run --source fixtures --provider fake --today 2026-11-04 --run-id syn
@@ -39,7 +39,19 @@ srt-phase0 fixture-labels
 srt-phase0 score --run data/runs/syn --labels data/judge/fixture-labels.jsonl
 ```
 
-### Real inbox (once the OAuth client and OpenRouter key exist)
+### Dev mode: Claude as the model, inbox via the Gmail connector (current plan)
+
+No Google Cloud project, keys or OpenRouter needed. The founder switches on the claude.ai **Gmail connector** for the session. Then:
+
+1. `srt-phase0 queries` prints the stage-1 search queries. Claude runs them through the Gmail connector and saves the matching emails to `data/inbox/emails.jsonl`, in the same format as `fixtures/synthetic_emails.jsonl` minus `truth`.
+2. Claude writes `data/answers/answers.jsonl`: one line per email with its stage-3 (`triage`) and stage-4 (`extraction`) answers, following the rules in `prompts.py`. Triage answers must use only the sender, subject and preview, as a real stage 3 would. See `fixtures/make_claude_answers.py` for the format.
+3. `srt-phase0 run --source file --fixtures data/inbox/emails.jsonl --provider replay --answers data/answers/answers.jsonl`
+4. **Accuracy check:** the founder reviews the resulting subscription list (`records.json`, summarised by Claude) and marks missed or wrong items. Claude can't judge its own answers.
+5. `srt-phase0 purge` deletes the saved emails, answers and runs.
+
+What this measures: Claude's accuracy as the extractor, not the cheap production model's. It doesn't exercise the app's own Gmail code (`GmailSource`).
+
+### Real inbox via the app's own Gmail access (later: once the OAuth client and OpenRouter key exist)
 
 1. **Network:** add `openrouter.ai` to the environment's allowed domains (environment menu in the session title bar → Edit → Network access). The default policy blocks it; Gmail and Google OAuth endpoints are already reachable.
 2. Follow [docs/gmail-oauth-setup.md](docs/gmail-oauth-setup.md), then run `srt-phase0 auth start/finish` for each account.

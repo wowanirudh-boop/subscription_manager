@@ -109,7 +109,7 @@ class Pipeline:
         )
         try:
             relevant = self.provider.triage(
-                TriageInput(sender=meta.from_addr, subject=meta.subject, preview=meta.snippet[:200])
+                TriageInput(message_id=message_id, sender=meta.from_addr, subject=meta.subject, preview=meta.snippet[:200])
             )
             trace.triage_relevant = relevant
             if not relevant:
@@ -133,7 +133,7 @@ class Pipeline:
                 body = truncate_tokens(full.body_text or "", self.max_body_tokens)
                 raw = self.provider.extract(
                     ExtractInput(
-                        sender=full.from_addr, sender_name=full.from_name, subject=full.subject,
+                        message_id=full.message_id, sender=full.from_addr, sender_name=full.from_name, subject=full.subject,
                         sent_date=full.date.date().isoformat(), body=body,
                     )
                 )

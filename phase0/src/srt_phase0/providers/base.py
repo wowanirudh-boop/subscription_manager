@@ -58,12 +58,14 @@ class RawExtraction(BaseModel):
 
 
 class TriageInput(BaseModel):
+    message_id: Optional[str] = None  # not sent to models; used by the replay provider
     sender: str
     subject: str
     preview: str  # first ~200 characters (R4 stage 3)
 
 
 class ExtractInput(BaseModel):
+    message_id: Optional[str] = None  # not sent to models; used by the replay provider
     sender: str
     sender_name: str
     subject: str

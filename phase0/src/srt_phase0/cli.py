@@ -41,7 +41,7 @@ def data_dir() -> Path:
 
 
 def _sources(meta: dict) -> dict:
-    if meta["source"] == "fixtures":
+    if meta["source"] in ("fixtures", "file"):
         path = Path(meta["fixtures"])
         accounts = meta.get("accounts") or FixtureSource.accounts(path)
         return {a: FixtureSource(path, a) for a in accounts}
@@ -70,7 +70,7 @@ def cmd_run(args) -> None:
     run_dir = data_dir() / "runs" / run_id
     meta = {
         "source": args.source,
-        "fixtures": str(Path(args.fixtures).resolve()) if args.source == "fixtures" else None,
+        "fixtures": str(Path(args.fixtures).resolve()) if args.source in ("fixtures", "file") else None,
         "accounts": [a.strip() for a in args.accounts.split(",")] if args.accounts else [],
         "provider": args.provider,
         "started": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -87,7 +87,9 @@ def cmd_run(args) -> None:
         if found[0] % 25 == 0 or found[0] == 1:
             print(f"  … {found[0]} subscription-related emails so far", file=sys.stderr)
 
-    pipe = Pipeline(get_provider(args.provider), store, concurrency=args.concurrency, on_extraction=progress)
+    if args.provider == "replay" and not args.answers:
+        sys.exit("--answers is required for --provider replay")
+    pipe = Pipeline(get_provider(args.provider, Path(args.answers) if args.answers else None), store, concurrency=args.concurrency, on_extraction=progress)
     result = pipe.run(sources.values(), today=dt.date.fromisoformat(args.today) if args.today else None)
     save_run(result, run_dir)
     (run_dir / "run_meta.json").write_text(json.dumps(meta, indent=2))
@@ -153,9 +155,18 @@ def cmd_judge_check(args) -> None:
     print("Labels complete and consistent.")
 
 
+def cmd_queries(args) -> None:
+    from .queries import QUERY_SET_VERSION, build_queries
+
+    today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
+    print(f"# stage-1 query set {QUERY_SET_VERSION}")
+    for q in build_queries(today):
+        print(q)
+
+
 def cmd_purge(args) -> None:
     d = data_dir()
-    targets = [d / "judge"] + ([] if args.judge_only else [d / "runs", d / "templates.json"])
+    targets = [d / "judge"] + ([] if args.judge_only else [d / "runs", d / "templates.json", d / "inbox", d / "answers"])
     for t in targets:
         if t.is_dir():
             shutil.rmtree(t)
@@ -175,10 +186,12 @@ def main(argv=None) -> None:
     a.set_defaults(func=cmd_auth)
 
     r = sub.add_parser("run", help="run the funnel over one or more accounts")
-    r.add_argument("--source", choices=["gmail", "fixtures"], default="fixtures")
-    r.add_argument("--fixtures", default=str(DEFAULT_FIXTURES))
+    r.add_argument("--source", choices=["gmail", "fixtures", "file"], default="fixtures",
+                   help="file = emails saved as JSONL (e.g. read via the Gmail connector)")
+    r.add_argument("--fixtures", default=str(DEFAULT_FIXTURES), help="JSONL path for --source fixtures/file")
     r.add_argument("--accounts", help="comma-separated Gmail addresses")
-    r.add_argument("--provider", choices=["fake", "openrouter"], default="fake")
+    r.add_argument("--provider", choices=["fake", "openrouter", "replay"], default="fake")
+    r.add_argument("--answers", help="answers JSONL for --provider replay (Claude as the model)")
     r.add_argument("--concurrency", type=int, default=8)
     r.add_argument("--persist-templates", action="store_true", help="reuse stage-5 templates across runs")
     r.add_argument("--today", help="override today's date (YYYY-MM-DD) for the 24-month window")
