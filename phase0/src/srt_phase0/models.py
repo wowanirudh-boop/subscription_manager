@@ -24,6 +24,8 @@ class EmailType(str, Enum):
     CANCELLATION_CONFIRMATION = "cancellation_confirmation"
     PRICE_CHANGE = "price_change"
     WINBACK_OFFER = "winback_offer"  # Q7: must not be mistaken for a cancellation
+    CARD_TRANSACTION = "card_transaction"  # bank/card alert: one charge, no subscription wording
+    PRE_DEBIT_NOTICE = "pre_debit_notice"  # mandate notice: upcoming debit with date + amount (PRD A5)
     OTHER = "other"
 
 
@@ -117,6 +119,7 @@ class Extraction(BaseModel):
     next_charge_date: FieldValue[dt.date] = Field(default_factory=FieldValue)
     trial_end_date: FieldValue[dt.date] = Field(default_factory=FieldValue)
     cancel_path: FieldValue[str] = Field(default_factory=FieldValue)
+    reference: FieldValue[str] = Field(default_factory=FieldValue)  # policy / account / subscription number
     rejected_values: list[str] = Field(default_factory=list)  # model values dropped by evidence checks
     attachment_skipped: bool = False  # body had no amount but attachments exist (flow decision #6 open)
 
@@ -139,6 +142,8 @@ class SubscriptionRecord(BaseModel):
     message_ids: list[str]
     flags: list[str] = Field(default_factory=list)  # e.g. confirmed value contradicted by a newer email
     period_months: Optional[int] = None
+    reference: Optional[str] = None  # set when the record is one of several from the same merchant
+    sources: list[str] = Field(default_factory=list)  # "merchant" and/or "bank"
     last_receipt_at: Optional[dt.datetime] = None  # newest receipt e-mail (any account)
     last_cancel_at: Optional[dt.datetime] = None  # newest merchant cancellation e-mail
     first_seen_at: Optional[dt.datetime] = None
@@ -161,5 +166,6 @@ class JudgeLabel(BaseModel):
     charge_date: Optional[dt.date] = None
     next_charge_date: Optional[dt.date] = None  # only if stated in the email, not derived
     trial_end_date: Optional[dt.date] = None  # only if stated in the email, not derived
+    reference: Optional[str] = None
     notes: str = ""
     judge: str = "claude"

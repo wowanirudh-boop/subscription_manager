@@ -55,6 +55,7 @@ class RawExtraction(BaseModel):
     trial_end_date: Quoted = Field(default_factory=Quoted)
     trial_length_days: QuotedInt = Field(default_factory=QuotedInt)
     cancel_path: Quoted = Field(default_factory=Quoted)
+    reference: Quoted = Field(default_factory=Quoted)
 
 
 class TriageInput(BaseModel):

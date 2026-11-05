@@ -2,7 +2,7 @@
 
 An early-stage product concept to help people discover recurring subscriptions and trials, understand upcoming charges, and act before unwanted renewals.
 
-> **Status:** Phase 1 built for a private beta. Phase 0 ran on the founder's real inbox (24 months, Claude as extractor). The [backend](backend/README.md) (35 tests, SQLite and PostgreSQL) and the [iOS/Android app](mobile/README.md) (typechecked, Android bundle built) exist. **Not yet deployed:** see the [launch checklist](deploy/README.md). The cheap production model hasn't been measured yet.
+> **Status:** Phase 1 built for a private beta. Phase 0 ran on the founder's real inbox (24 months, Claude as extractor). The [backend](backend/README.md) (39 tests, SQLite and PostgreSQL) and the [iOS/Android app](mobile/README.md) (typechecked; Android and iOS bundles built) support several Gmail and Outlook accounts and bank/card alert e-mails ([decision log](docs/decision-log-phase1.md)). **Not yet deployed:** see the [launch checklist](deploy/README.md). The cheap production model hasn't been measured yet.
 
 ## What's in this repository
 
@@ -14,7 +14,8 @@ An early-stage product concept to help people discover recurring subscriptions a
 | [Flow review guide](docs/flow-review.md) | Navigation for the flow diagram and eight decisions requiring sign-off | Working draft |
 | [Flow diagram v0.1](artifacts/flow-diagram-v0-1.html) | Original, self-contained interactive HTML flow | Original artifact; awaiting sign-off |
 | [Phase 0 pipeline](phase0/README.md) | Gmail search → triage → extraction → per-sender templates, plus judge and scorer for assumption A3 | Built; run on founder inbox (dev mode) |
-| [Backend](backend/README.md) | FastAPI service: accounts, lifecycle, alerts, Gmail push, data controls (R1–R10) | Built; 35 tests |
+| [Backend](backend/README.md) | FastAPI service: Gmail + Outlook accounts, bank-alert detection, lifecycle, alerts, data controls (R1–R10) | Built; 39 tests |
+| [Decision log](docs/decision-log-phase1.md) | Changes to PRD v1.1 made during Phase 1 (D4, non-Gmail providers, cadence, plan split) | Current |
 | [Mobile app](mobile/README.md) | Expo / React Native iOS + Android app | Built; typechecked, bundled |
 | [Launch checklist](deploy/README.md) | GCP Mumbai setup script, OAuth, EAS builds | Ready to run; needs founder accounts |
 

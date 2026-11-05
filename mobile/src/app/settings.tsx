@@ -13,10 +13,10 @@ export default function Settings() {
 
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16 }}>
-      <Text style={st.h}>Connected Gmail accounts</Text>
+      <Text style={st.h}>Connected email accounts</Text>
       {me?.accounts.map((a) => (
         <Card key={a.id}>
-          <Text style={st.email}>{a.email}</Text>
+          <Text style={st.email}>{a.email} <Text style={st.sub}>· {a.provider === "outlook" ? "Outlook" : "Gmail"}</Text></Text>
           <Text style={st.sub}>{a.sync_status === "done" ? `${a.processed} emails checked` : `Sync: ${a.sync_status}`}</Text>
           <Button kind="danger" title="Disconnect" onPress={() => Alert.alert(
             "Disconnect this account?",
@@ -25,11 +25,11 @@ export default function Settings() {
               onPress: async () => { await api.disconnect(a.id); setMe(await api.me()); } }])} />
         </Card>
       ))}
-      <Button kind="secondary" title="Add another Gmail account" onPress={() => router.push("/disclosure")} />
+      <Button kind="secondary" title="Add another account (Gmail or Outlook)" onPress={() => router.push("/disclosure")} />
       <Text style={[st.h, { marginTop: 24 }]}>Your data</Text>
       <Button kind="danger" title="Delete everything" onPress={() => Alert.alert(
         "Delete everything?",
-        "All subscriptions, evidence and Gmail access are deleted and can't be recovered. You'll get a confirmation email.",
+        "All subscriptions, evidence and mailbox access are deleted and can't be recovered. You'll get a confirmation email.",
         [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive",
           onPress: async () => { await api.deleteEverything(); await signOutLocal(); router.replace("/disclosure"); } }])} />
       <Button kind="secondary" title="Sign out on this phone" onPress={async () => { await signOutLocal(); router.replace("/disclosure"); }} />

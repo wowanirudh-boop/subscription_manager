@@ -31,15 +31,23 @@ EDITABLE = {"merchant", "amount", "currency", "billing_period", "next_charge_dat
 
 
 class Deps:
-    def __init__(self, gateway: GmailGateway, delivery: Delivery, provider_factory: Callable, clock: Callable[[], dt.datetime]):
+    def __init__(self, gateway: GmailGateway, delivery: Delivery, provider_factory: Callable, clock: Callable[[], dt.datetime],
+                 ms_gateway=None):
         self.gateway, self.delivery, self.provider_factory, self.clock = gateway, delivery, provider_factory, clock
+        self.ms_gateway = ms_gateway
+
+    def gw(self, account: "GmailAccount"):
+        """Mailbox provider for an account: Gmail or Outlook (Microsoft Graph)."""
+        return self.ms_gateway if account.provider == "outlook" else self.gateway
 
 
 def create_app(deps: Optional[Deps] = None) -> FastAPI:
     s = settings()
     db.init(s.database_url)
-    deps = deps or Deps(GoogleGateway(), RealDelivery() if s.smtp_host else FakeDelivery(),
-                        lambda: get_provider(s.provider), lambda: dt.datetime.now(dt.timezone.utc))
+    if deps is None:
+        from ..services.microsoft import MicrosoftGateway
+        deps = Deps(GoogleGateway(), RealDelivery() if s.smtp_host else FakeDelivery(),
+                    lambda: get_provider(s.provider), lambda: dt.datetime.now(dt.timezone.utc), MicrosoftGateway())
     app = FastAPI(title="Subscription Renewal Tracker API", version="0.1.0")
     app.state.deps = deps
 
@@ -71,12 +79,17 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
             user, acct = session.get(User, user_id), session.get(GmailAccount, account_id)
             if not user or not acct:
                 return
-            ingest.sync_account(session, user, acct, deps.gateway.source_for(acct), deps.provider_factory(),
+            ingest.sync_account(session, user, acct, deps.gw(acct).source_for(acct), deps.provider_factory(),
                                 deps.clock(), deps.delivery, first_sync=first)
-            if watch_due(acct, deps.clock()) and settings().pubsub_topic:
-                w = deps.gateway.start_watch(acct)
-                acct.history_id = str(w.get("historyId"))
-                acct.watch_expires_at = dt.datetime.fromtimestamp(int(w["expiration"]) / 1000, dt.timezone.utc)
+            if watch_due(acct, deps.clock()):
+                if acct.provider == "outlook" and settings().public_base_url:
+                    w = deps.gw(acct).start_watch(acct)
+                    acct.watch_id, acct.watch_secret = w["id"], w["clientState"]
+                    acct.watch_expires_at = dt.datetime.fromisoformat(str(w["expiration"]).replace("Z", "+00:00"))
+                elif acct.provider == "gmail" and settings().pubsub_topic:
+                    w = deps.gw(acct).start_watch(acct)
+                    acct.history_id = str(w.get("historyId"))
+                    acct.watch_expires_at = dt.datetime.fromtimestamp(int(w["expiration"]) / 1000, dt.timezone.utc)
                 session.commit()
         except Exception as e:  # noqa: BLE001
             session.rollback()
@@ -104,32 +117,60 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
             got = deps.gateway.exchange_code(body.server_auth_code)
         except PartialGrant as e:
             raise HTTPException(403, str(e))
+        return attach_account(s, bg, authorization, got, "gmail", body.disclosure_version)
+
+    def attach_account(s: Session, bg: BackgroundTasks, authorization: str, got: dict, provider: str, version: str):
         user = None
-        if authorization.startswith("Bearer "):  # adding a second account (D16)
-            user = s.get(User, verify_session(authorization[7:]))
+        if authorization.startswith("Bearer "):  # adding another account to the same user (D16)
+            try:
+                user = s.get(User, verify_session(authorization[7:]))
+            except Exception:
+                raise HTTPException(401, "invalid session")
         if user is None:
-            acct = s.scalar(select(GmailAccount).where(GmailAccount.email == got["email"]))
+            acct = s.scalar(select(GmailAccount).where(GmailAccount.email == got["email"], GmailAccount.provider == provider))
             user = s.get(User, acct.user_id) if acct else s.scalar(select(User).where(User.email == got["email"]))
         if user is None:
             user = User(email=got["email"])
             s.add(user)
             s.flush()
-        acct = s.scalar(select(GmailAccount).where(GmailAccount.user_id == user.id, GmailAccount.email == got["email"]))
+        acct = s.scalar(select(GmailAccount).where(GmailAccount.user_id == user.id, GmailAccount.email == got["email"],
+                                                   GmailAccount.provider == provider))
         if acct is None:
-            acct = GmailAccount(user_id=user.id, email=got["email"], token_ciphertext=b"")
+            acct = GmailAccount(user_id=user.id, email=got["email"], provider=provider, token_ciphertext=b"")
             s.add(acct)
         store_token(acct, got["token"])
-        s.add(Consent(user_id=user.id, kind="gmail_disclosure", version=body.disclosure_version, detail=got["email"]))
+        s.add(Consent(user_id=user.id, kind="mail_disclosure", version=version, detail=f"{provider}:{got['email']}"))
         s.commit()
         bg.add_task(run_sync, user.id, acct.id, acct.last_synced_at is None)
-        return {"session_token": issue_session(user.id), "user_id": user.id, "account_id": acct.id, "email": acct.email}
+        return {"session_token": issue_session(user.id), "user_id": user.id, "account_id": acct.id,
+                "email": acct.email, "provider": provider}
+
+    class MicrosoftAuthIn(BaseModel):
+        code: str
+        code_verifier: str
+        redirect_uri: str
+        disclosure_version: str
+        disclosure_accepted: bool
+
+    @app.post("/v1/auth/microsoft")
+    def auth_microsoft(body: MicrosoftAuthIn, bg: BackgroundTasks, authorization: str = Header(default=""),
+                       s: Session = Depends(get_db)):
+        if not body.disclosure_accepted or body.disclosure_version != settings().disclosure_version:
+            raise HTTPException(400, "the current disclosure must be accepted first")
+        if deps.ms_gateway is None:
+            raise HTTPException(501, "Outlook is not configured")
+        try:
+            got = deps.ms_gateway.exchange_code(body.code, body.code_verifier, body.redirect_uri)
+        except PartialGrant as e:
+            raise HTTPException(403, str(e))
+        return attach_account(s, bg, authorization, got, "outlook", body.disclosure_version)
 
     @app.get("/v1/me")
     def me(user: User = Depends(current_user), s: Session = Depends(get_db)):
         accts = s.scalars(select(GmailAccount).where(GmailAccount.user_id == user.id))
         views, _ = build_views(s, user, today())
         return {"email": user.email, "tz": user.tz,
-                "accounts": [{"id": a.id, "email": a.email, "sync_status": a.sync_status, "matched": a.sync_matched,
+                "accounts": [{"id": a.id, "email": a.email, "provider": a.provider, "sync_status": a.sync_status, "matched": a.sync_matched,
                               "processed": a.sync_processed, "last_synced_at": a.last_synced_at} for a in accts],
                 "unknowns": len(unknowns.queue(views))}
 
@@ -138,7 +179,7 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
         acct = s.get(GmailAccount, account_id)
         if not acct or acct.user_id != user.id:
             raise HTTPException(404)
-        revoked = deps.gateway.revoke(acct)
+        revoked = deps.gw(acct).revoke(acct)
         # Records, evidence and token deleted now (R1 requires <= 24 h). Decision #4: a record merged from
         # two accounts survives with the other account's evidence, because records are rebuilt from what remains.
         for row in s.scalars(select(ExtractionRow).where(ExtractionRow.account_id == acct.id)):
@@ -152,7 +193,7 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
 
     @app.delete("/v1/me")
     def delete_me(user: User = Depends(current_user), s: Session = Depends(get_db)):
-        revoked = [deps.gateway.revoke(a) for a in s.scalars(select(GmailAccount).where(GmailAccount.user_id == user.id))]
+        revoked = [deps.gw(a).revoke(a) for a in s.scalars(select(GmailAccount).where(GmailAccount.user_id == user.id))]
         email = user.email
         for model in (Alert, ExtractionRow, ManualRecord, PushToken, SuppressedMerchant, SupportAccessLog, Consent):
             for row in s.scalars(select(model).where(model.user_id == user.id)):
@@ -393,12 +434,31 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
         _verify_pubsub(request)
         envelope = await request.json()
         data = json.loads(base64.b64decode(envelope["message"]["data"]))
-        acct = s.scalar(select(GmailAccount).where(GmailAccount.email == data["emailAddress"].lower()))
+        acct = s.scalar(select(GmailAccount).where(GmailAccount.email == data["emailAddress"].lower(),
+                                                   GmailAccount.provider == "gmail"))
         if acct:
             acct.history_id = str(data.get("historyId"))
             s.commit()
             bg.add_task(run_sync, acct.user_id, acct.id, False)  # R3: processed within minutes (D27)
         return {"ok": True}  # always 2xx so Pub/Sub does not redeliver for unknown accounts
+
+    @app.post("/graph/notify")
+    async def graph_notify(request: Request, bg: BackgroundTasks, s: Session = Depends(get_db)):
+        # Subscription validation handshake: echo the token as text/plain within 10 s.
+        token = request.query_params.get("validationToken")
+        if token is not None:
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse(token)
+        payload = await request.json()
+        seen = set()
+        for n in payload.get("value", []):
+            acct = s.scalar(select(GmailAccount).where(GmailAccount.watch_id == n.get("subscriptionId"),
+                                                       GmailAccount.provider == "outlook"))
+            # clientState proves the notification came from our subscription
+            if acct and acct.watch_secret and n.get("clientState") == acct.watch_secret and acct.id not in seen:
+                seen.add(acct.id)
+                bg.add_task(run_sync, acct.user_id, acct.id, False)
+        return {"ok": True}
 
     @app.post("/internal/tick")
     def internal_tick(bg: BackgroundTasks, x_internal_token: str = Header(default=""), s: Session = Depends(get_db)):
@@ -407,6 +467,12 @@ def create_app(deps: Optional[Deps] = None) -> FastAPI:
         now = deps.clock()
         result = alerts_service.tick(s, now, deps.delivery)
         s.commit()
+        try:
+            result["receipts"] = alerts_service.poll_receipts(s, now, deps.delivery)  # M5 delivered
+            s.commit()
+        except Exception as e:  # noqa: BLE001
+            s.rollback()
+            result["receipts"] = {"error": str(e)[:200]}
         renew = 0
         for acct in s.scalars(select(GmailAccount)):
             if watch_due(acct, now):

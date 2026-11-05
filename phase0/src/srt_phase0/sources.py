@@ -214,3 +214,78 @@ def _walk(part: dict, plain: list, html_parts: list, attachments: list) -> None:
         html_parts.append(_decode(body["data"]))
     for p in part.get("parts", []) or []:
         _walk(p, plain, html_parts, attachments)
+
+
+# ---- Microsoft Graph (Outlook.com / Hotmail / Microsoft 365) --------------------------
+
+GRAPH = "https://graph.microsoft.com/v1.0"
+GRAPH_SCOPES = ["offline_access", "Mail.Read", "User.Read"]  # read-only mail (mirrors D8)
+
+
+class GraphSource:
+    """Outlook mailbox via Microsoft Graph. Same contract as GmailSource.
+
+    ``token`` is a zero-argument callable returning a valid access token (the backend
+    refreshes it). Queries are KQL strings for ``$search`` (see queries.build_graph_queries).
+    Stage 1 asks only for ids + dates; stage 3 reads subject/sender/preview; bodies are
+    fetched only for triage-passed mail (R4, R9).
+    """
+
+    def __init__(self, token, account: str, client=None) -> None:
+        import httpx
+
+        self.token = token
+        self.account = account
+        self.client = client or httpx.Client(timeout=30)
+        self._pdfs: dict[str, list[str]] = {}
+
+    def _get(self, url: str, params: Optional[dict] = None, headers: Optional[dict] = None) -> dict:
+        h = {"Authorization": f"Bearer {self.token()}", **(headers or {})}
+        r = self.client.get(url if url.startswith("http") else GRAPH + url, params=params, headers=h)
+        r.raise_for_status()
+        return r.json()
+
+    def search(self, queries: list[str]) -> Iterator[str]:
+        found: dict[str, str] = {}
+        for q in queries:
+            url, params = "/me/messages", {"$search": f'"{q}"', "$select": "id,receivedDateTime", "$top": "250"}
+            while url:
+                data = self._get(url, params)
+                for m in data.get("value", []):
+                    found.setdefault(m["id"], m.get("receivedDateTime", ""))
+                url, params = data.get("@odata.nextLink"), None
+        # $search results are relevance-ordered; R2 wants newest first.
+        for mid, _ in sorted(found.items(), key=lambda kv: kv[1], reverse=True):
+            yield mid
+
+    def metadata(self, message_id: str) -> EmailMessage:
+        m = self._get(f"/me/messages/{message_id}",
+                      {"$select": "id,subject,from,receivedDateTime,bodyPreview,hasAttachments,conversationId"})
+        sender = (m.get("from") or {}).get("emailAddress") or {}
+        return EmailMessage(
+            message_id=m["id"], account=self.account, thread_id=m.get("conversationId"),
+            from_addr=(sender.get("address") or "unknown@unknown").lower(), from_name=sender.get("name") or "",
+            subject=m.get("subject") or "", date=dt.datetime.fromisoformat(m["receivedDateTime"].replace("Z", "+00:00")),
+            snippet=(m.get("bodyPreview") or "")[:200],
+        )
+
+    def full(self, msg: EmailMessage) -> EmailMessage:
+        m = self._get(f"/me/messages/{msg.message_id}", {"$select": "body,hasAttachments"},
+                      headers={"Prefer": 'outlook.body-content-type="text"'})
+        body = (m.get("body") or {}).get("content") or ""
+        if (m.get("body") or {}).get("contentType") == "html":
+            body = html_to_text(body)
+        names: list[str] = []
+        if m.get("hasAttachments"):
+            atts = self._get(f"/me/messages/{msg.message_id}/attachments", {"$select": "id,name,contentType"}).get("value", [])
+            names = [a.get("name", "") for a in atts]
+            self._pdfs[msg.message_id] = [a["id"] for a in atts
+                                          if a.get("contentType") == "application/pdf" or a.get("name", "").lower().endswith(".pdf")]
+        return msg.model_copy(update={"body_text": body.strip(), "attachment_names": names})
+
+    def attachment_text(self, msg: EmailMessage) -> Optional[str]:
+        ids = self._pdfs.get(msg.message_id) or []
+        if not ids:
+            return None
+        a = self._get(f"/me/messages/{msg.message_id}/attachments/{ids[0]}")
+        return pdf_first_page_text(base64.b64decode(a.get("contentBytes", "")))

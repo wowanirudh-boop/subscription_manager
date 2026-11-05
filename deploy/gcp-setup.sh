@@ -63,7 +63,8 @@ gcloud run deploy "$SERVICE" --image "$IMAGE" --region "$REGION" --service-accou
   --set-env-vars "ENV=production,REGION=${REGION},EXTRACTION_PROVIDER=openrouter,GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:?},KMS_KEY_NAME=projects/${PROJECT_ID}/locations/${REGION}/keyRings/srt/cryptoKeys/oauth-tokens,PUBSUB_TOPIC=projects/${PROJECT_ID}/topics/gmail-push,PUBSUB_SERVICE_ACCOUNT=${PUSH_SA},OPENROUTER_TRIAGE_MODEL=${OPENROUTER_TRIAGE_MODEL:-unset},OPENROUTER_EXTRACT_MODEL=${OPENROUTER_EXTRACT_MODEL:-unset},SMTP_HOST=${SMTP_HOST:-},SMTP_USER=${SMTP_USER:-},MAIL_FROM=${MAIL_FROM:-}" \
   --set-secrets "DATABASE_URL=srt-database-url:latest,JWT_SECRET=srt-jwt-secret:latest,INTERNAL_TOKEN=srt-internal-token:latest,GOOGLE_OAUTH_CLIENT_SECRET=srt-google-client-secret:latest,OPENROUTER_API_KEY=srt-openrouter-key:latest,SMTP_PASSWORD=srt-smtp-password:latest"
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')
-gcloud run services update "$SERVICE" --region "$REGION" --update-env-vars "PUBSUB_AUDIENCE=${URL}/pubsub/gmail"
+gcloud run services update "$SERVICE" --region "$REGION" \
+  --update-env-vars "PUBSUB_AUDIENCE=${URL}/pubsub/gmail,PUBLIC_BASE_URL=${URL},MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID:-}"
 
 # Push subscription with an OIDC token the backend verifies.
 gcloud pubsub subscriptions create gmail-push-sub --topic gmail-push --push-endpoint "${URL}/pubsub/gmail" \

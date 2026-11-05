@@ -11,7 +11,7 @@ The database stores **e-mail facts** (extracted fields + one evidence sentence p
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ./phase0 -e "./backend[test]"
-cd backend && python -m pytest -q                                  # 35 tests, SQLite
+cd backend && python -m pytest -q                                  # 39 tests, SQLite
 TEST_DATABASE_URL=postgresql+psycopg://user@host/db python -m pytest -q   # same tests on PostgreSQL
 uvicorn srt_backend.main:app --reload                              # dev server; EXTRACTION_PROVIDER=fake by default
 ```
@@ -20,6 +20,8 @@ uvicorn srt_backend.main:app --reload                              # dev server;
 
 | Req | What | Where | Tests |
 |---|---|---|---|
+| R1 (+Outlook) | Microsoft sign-in (PKCE, `Mail.Read` only), partial grant refused, Graph change notifications with clientState check, renewal < 1 day before expiry | `services/microsoft.py`, `/v1/auth/microsoft`, `/graph/notify`; app `lib/outlook.ts` | `test_outlook_account_joins_gmail_user_and_merges`, `test_graph_notification_handshake_and_client_state` |
+| D4 amended | Bank/card alert e-mails: card transactions + pre-debit notices; one-off purchases dropped; recurring charges become records | Phase 0 `merge.py`, `prompts.py`, `queries.py` | `test_card_alert_emails_reveal_a_silent_subscription`, Phase 0 merge tests |
 | R1 | Read-only OAuth; affirmative disclosure before handoff; multiple accounts; disconnect revokes and deletes | `api/app.py` `/v1/auth/google`, `/v1/accounts/{id}/disconnect`; `services/gmail.py`; app `disclosure.tsx` | `test_disclosure_must_be_accepted…`, `test_second_account_merges_and_disconnect…` |
 | R2 | First sync: 24 months, newest first, progressive results | `services/ingest.py` (background task); `queries.build_app_queries` | `test_first_sync_builds_the_list` |
 | R3 | Gmail Pub/Sub watch; renew before 7-day expiry; catch-up on lapse | `/pubsub/gmail` (OIDC-verified), `/internal/tick` → `watch_due` | `test_gmail_push_triggers_sync`, `test_new_receipt_without_alert_is_a_surprise_charge` |
@@ -47,8 +49,11 @@ uvicorn srt_backend.main:app --reload                              # dev server;
 
 - **Production model untested.** `EXTRACTION_PROVIDER=openrouter` is wired, but no cheap model has run on real mail: openrouter.ai is blocked from the build environment. Q2 and M8 cost remain open. Run Phase 0 with the chosen model before the beta.
 - **D29 timings are unmeasured on real Gmail with a real model** (first result ≤ 30 s; ≤ 2,000 matches in ≤ 10 min). First sync runs as a FastAPI background task on one Cloud Run instance (`--min-instances 1 --no-cpu-throttling`). That's fine for a ≤ 100-user beta; move it to Cloud Tasks for scale.
-- **M5 delivery:** M5 counts Expo push *tickets*, not delivery receipts. Receipts aren't polled yet.
-- **Several subscriptions from one merchant** (e.g. several insurance policies paid through one biller) merge into one record.
+- **Outlook search is untested against the live Graph API.** The KQL queries (`received>=… AND (subject:… OR …)`) and the subscription limits (about 3 days for mail) come from my knowledge of Graph and are tested only with mocks (medium confidence). Verify with a real mailbox first.
+- **Microsoft has no per-app token revocation.** Disconnecting deletes our token and the change subscription; users can also remove the app at account.live.com/consent/Manage. The app should tell them this.
+- **Bank-alert detection** needs ≥ 2 regular charges (or a pre-debit notice), so a new subscription appears from its second charge. Descriptors such as "GOOGLE*YOUTUBE" aren't linked to the merchant's own e-mails ("YouTube Premium"), so both can show.
+- **Plans split by amount** are linked by nearest amount across years. That's correct on the founder's insurance data, but a plan whose price jumps a lot could be mislinked. It's flagged as estimated in the app.
+- **No database migrations** (Alembic) yet: the schema is created on first start. Add migrations before the first production schema change.
 - **Silent merchants** (no e-mails) can only be added manually. The disclosure says so.
 - **Not built here:** privacy policy and Limited Use page (need the domain, D31), Google verification and CASA (R10/§10), and app-store listings.
 - **Not run here:** no Docker daemon was available, so the image wasn't built. Its install was replicated in a clean venv and the server ran on PostgreSQL 16.

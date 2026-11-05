@@ -30,6 +30,8 @@ const config: ExpoConfig = {
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000",
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
+    // Azure app registration ("Mobile and desktop" platform, redirect renewaltracker://auth), personal + work accounts.
+    microsoftClientId: process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID ?? "",
     eas: { projectId: process.env.EAS_PROJECT_ID },
   },
 };

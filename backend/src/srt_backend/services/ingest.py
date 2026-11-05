@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from srt_phase0.pipeline import Pipeline
 from srt_phase0.providers.base import Provider
-from srt_phase0.queries import build_app_queries
+from srt_phase0.queries import build_app_queries, build_graph_queries
 from srt_phase0.sources import EmailSource
 from srt_phase0.templates import TemplateStore
 
@@ -45,7 +45,12 @@ def sync_account(
     store = TemplateStore.from_json(user.templates_json)
     account.sync_status = "running"
     s.commit()
-    res = Pipeline(provider, store, concurrency=4).run([source], today, build_app_queries(today, after_epoch=after_epoch), skip)
+    if account.provider == "outlook":
+        after = dt.datetime.fromtimestamp(after_epoch, dt.timezone.utc).date() if after_epoch else None
+        queries = build_graph_queries(today, after=after)
+    else:
+        queries = build_app_queries(today, after_epoch=after_epoch)
+    res = Pipeline(provider, store, concurrency=4).run([source], today, queries, skip)
 
     exs = {e.message_id: e for e in res.extractions}
     for t in res.traces:

@@ -56,7 +56,11 @@ export default function RecordScreen() {
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16 }}>
       <Text style={st.title}>{r.merchant.value}</Text>
-      <Text style={st.sub}>{STATE_LABEL[r.state]} · {r.source_accounts.join(", ")}</Text>
+      <Text style={st.sub}>{STATE_LABEL[r.state]} · {r.source_accounts.join(", ")}
+        {r.sources.includes("bank") ? " · from bank alerts" : ""}{r.reference ? ` · ${r.reference}` : ""}</Text>
+      {r.flags.some((f) => f.includes("told apart by amount")) && (
+        <Note>This merchant bills you for several plans. We told them apart by amount, so check this is the right one.</Note>
+      )}
 
       {r.notices.includes("resubscribe_question") && (
         <Card>

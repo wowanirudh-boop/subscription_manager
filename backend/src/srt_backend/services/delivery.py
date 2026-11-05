@@ -14,6 +14,10 @@ from ..config import settings
 class Delivery(Protocol):
     def push(self, tokens: list[str], title: str, body: str, data: dict) -> list[dict]: ...
     def email(self, to: str, subject: str, body: str) -> None: ...
+    def receipts(self, ticket_ids: list[str]) -> dict[str, dict]: ...
+
+
+EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 
 
 class RealDelivery:
@@ -27,6 +31,14 @@ class RealDelivery:
         r = self.client.post(settings().expo_push_url, json=msgs, headers={"Accept": "application/json"})
         r.raise_for_status()
         return r.json().get("data", [])  # per-token tickets: {"status": "ok"|"error", ...}
+
+    def receipts(self, ticket_ids: list[str]) -> dict[str, dict]:
+        """Expo push receipts: did Apple/Google actually accept delivery to the device (M5)."""
+        if not ticket_ids:
+            return {}
+        r = self.client.post(EXPO_RECEIPTS_URL, json={"ids": ticket_ids}, headers={"Accept": "application/json"})
+        r.raise_for_status()
+        return r.json().get("data", {})
 
     def email(self, to: str, subject: str, body: str) -> None:
         s = settings()
@@ -51,7 +63,12 @@ class FakeDelivery:
 
     def push(self, tokens, title, body, data):
         self.pushes.append({"tokens": tokens, "title": title, "body": body, "data": data})
-        return [{"status": "ok"} for _ in tokens]
+        return [{"status": "ok", "id": f"ticket-{len(self.pushes)}-{i}"} for i, _ in enumerate(tokens)]
+
+    def receipts(self, ticket_ids):
+        self.receipt_calls = getattr(self, "receipt_calls", 0) + 1
+        return {t: self.receipt_overrides.get(t, {"status": "ok"}) if hasattr(self, "receipt_overrides") else {"status": "ok"}
+                for t in ticket_ids}
 
     def email(self, to, subject, body):
         self.emails.append({"to": to, "subject": subject, "body": body})

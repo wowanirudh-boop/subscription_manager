@@ -48,6 +48,9 @@ class GmailAccount(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     email: Mapped[str] = mapped_column(String(320), index=True)
+    provider: Mapped[str] = mapped_column(String(16), default="gmail")  # gmail | outlook
+    watch_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)  # Graph subscription id
+    watch_secret: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)  # Graph clientState
     token_ciphertext: Mapped[bytes] = mapped_column(LargeBinary)  # R10: encrypted at rest
     history_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     watch_expires_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -113,6 +116,7 @@ class Alert(Base):
     status: Mapped[str] = mapped_column(String(16), default="scheduled")  # scheduled|sent|delivered|failed|cancelled
     sent_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ticket_ids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Expo push tickets, comma-separated
 
 
 class PushToken(Base):

@@ -156,6 +156,13 @@ def verify(raw: RawExtraction, msg: EmailMessage, stage: str = "stage4") -> Extr
         else:
             rejected.append("cancel_path")
 
+    ref = raw.reference
+    if ref.value:
+        if contains_quote(_haystack(msg), ref.value) and len(ref.value.strip()) >= 4:
+            ex.reference = FieldValue(value=ref.value.strip(), state=FieldState.CONFIRMED, evidence=_ev(msg, ref.quote or ref.value))
+        else:
+            rejected.append("reference")
+
     # attachments: R4 says attachments only if the body has no amount. Phase 0 does
     # not parse attachments (flow sign-off #6 is open); record when it would have.
     if not ex.amount.known and msg.attachment_names and not find_amounts(msg.body_text or ""):
@@ -170,7 +177,7 @@ def derive(ex: Extraction, raw: RawExtraction, msg: EmailMessage) -> None:
     sent = msg.date.date()
 
     # A receipt with no stated charge date was sent when the charge happened.
-    if ex.email_type == EmailType.RECEIPT and not ex.charge_date.known:
+    if ex.email_type in (EmailType.RECEIPT, EmailType.CARD_TRANSACTION) and not ex.charge_date.known:
         ex.charge_date = FieldValue(
             value=sent, state=FieldState.ESTIMATED, derived_from="receipt sent date",
             evidence=Evidence(message_id=msg.message_id, account=msg.account, snippet=f"Email sent {sent.isoformat()}"),

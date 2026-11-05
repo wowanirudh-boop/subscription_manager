@@ -61,6 +61,7 @@ def tick(s: Session, now: dt.datetime, delivery: Delivery) -> dict:
                     ok = bool(tickets) and all(t.get("status") == "ok" for t in tickets)
                     if not ok:
                         raise RuntimeError(f"push failed: {tickets or 'no push tokens'}")
+                    a.ticket_ids = ",".join(t["id"] for t in tickets if t.get("id"))
                 else:
                     delivery.email(user.email, title, body + "\n\n- Subscription Renewal Tracker")
                 a.status, a.sent_at = "sent", now
@@ -78,3 +79,36 @@ def alert_delivered_before(s: Session, user_id: int, record_key: str, charge: dt
     return s.scalar(select(Alert.id).where(
         Alert.user_id == user_id, Alert.record_key == record_key, Alert.status.in_(("sent", "delivered")),
         Alert.sent_at <= charge, Alert.sent_at >= charge - dt.timedelta(days=8))) is not None
+
+
+RECEIPT_DELAY = dt.timedelta(minutes=15)  # Expo recommends checking receipts after ~15 minutes
+
+
+def poll_receipts(s: Session, now: dt.datetime, delivery: Delivery) -> dict:
+    """M5: promote push alerts from 'sent' (Expo accepted) to 'delivered' (Apple/Google accepted)."""
+    pending = list(s.scalars(select(Alert).where(Alert.channel == "push", Alert.status == "sent",
+                                                 Alert.ticket_ids.is_not(None), Alert.sent_at <= now - RECEIPT_DELAY)))
+    ids = [t for a in pending for t in (a.ticket_ids or "").split(",") if t]
+    if not ids:
+        return {"checked": 0, "delivered": 0, "failed": 0}
+    receipts = delivery.receipts(ids)
+    delivered = failed = 0
+    for a in pending:
+        rs = [receipts.get(t) for t in a.ticket_ids.split(",") if t]
+        if any(r is None for r in rs):
+            continue  # not ready yet
+        if any(r.get("status") == "ok" for r in rs):
+            a.status = "delivered"
+            delivered += 1
+            log_event(s, a.user_id, "alert_delivered", a.record_key, channel="push", days_before=a.days_before)
+        else:
+            a.status, a.error = "failed", str([r.get("message") for r in rs])[:500]
+            failed += 1
+            log_event(s, a.user_id, "alert_failed", a.record_key, channel="push", days_before=a.days_before)
+        for r in rs:
+            if (r.get("details") or {}).get("error") == "DeviceNotRegistered":
+                bad = (r.get("details") or {}).get("expoPushToken")
+                if bad:
+                    for t in s.scalars(select(PushToken).where(PushToken.user_id == a.user_id, PushToken.token == bad)):
+                        s.delete(t)
+    return {"checked": len(pending), "delivered": delivered, "failed": failed}

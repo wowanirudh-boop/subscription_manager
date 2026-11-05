@@ -87,4 +87,22 @@ def build_app_queries(today: dt.date, months: int = 24, after_epoch: Optional[in
     bound = f"after:{after_epoch}" if after_epoch else "after:" + (today - relativedelta(months=months)).strftime("%Y/%m/%d")
     senders = "{" + " ".join(SENDER_PATTERNS) + "}"
     return [f"{bound} subject:({SUBJECT_TERMS_V2}) -category:social",
-            f"{bound} {senders} " + " ".join(EXCLUSIONS)]
+            f"{bound} {senders} " + " ".join(EXCLUSIONS),
+            f"{bound} subject:({BANK_ALERT_TERMS}) " + " ".join(EXCLUSIONS)]
+
+
+# Bank / card alert e-mails (D4 amended 5 Nov 2026): charges from merchants that never e-mail.
+BANK_ALERT_TERMS = (
+    'transaction OR debited OR spent OR "card ending" OR "credit card" OR "debit card" OR "e-mandate" OR '
+    '"emandate" OR "pre-debit" OR "standing instruction" OR "si registered" OR "autopay" OR "upi mandate" OR "recurring payment"'
+)
+
+# Microsoft Graph uses KQL in $search, not Gmail syntax. Same three intents.
+def build_graph_queries(today: dt.date, months: int = 24, after: Optional[dt.date] = None) -> list[str]:
+    since = (after or (today - relativedelta(months=months))).isoformat()
+    def kql(terms: str) -> str:
+        parts = [t.strip() for t in terms.split(" OR ")]
+        return " OR ".join(f"subject:{p}" for p in parts)
+    return [f"received>={since} AND ({kql(SUBJECT_TERMS_V2)})",
+            f"received>={since} AND (from:billing OR from:noreply OR from:no-reply OR from:receipts OR from:invoice OR from:payments)",
+            f"received>={since} AND ({kql(BANK_ALERT_TERMS)})"]

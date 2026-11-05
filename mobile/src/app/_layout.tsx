@@ -17,7 +17,7 @@ export default function Layout() {
   return (
     <Stack screenOptions={{ headerTitleStyle: { fontWeight: "600" } }}>
       <Stack.Screen name="index" options={{ title: "Upcoming charges" }} />
-      <Stack.Screen name="disclosure" options={{ title: "Connect Gmail", headerBackVisible: false }} />
+      <Stack.Screen name="disclosure" options={{ title: "Connect email" }} />
       <Stack.Screen name="record/[key]" options={{ title: "Subscription" }} />
       <Stack.Screen name="unknown/[key]" options={{ title: "Missing renewal date", presentation: "formSheet" }} />
       <Stack.Screen name="add" options={{ title: "Add manually", presentation: "modal" }} />

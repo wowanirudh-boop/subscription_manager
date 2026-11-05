@@ -27,12 +27,15 @@ export interface RecordView {
   notices: Notice[];
   missed_date: string | null;
   source_accounts: string[];
+  reference: string | null;
+  sources: ("merchant" | "bank")[];
+  flags: string[];
   muted: boolean;
   removed?: boolean;
 }
 
 export interface Me {
   email: string;
-  accounts: { id: number; email: string; sync_status: string; matched: number; processed: number; last_synced_at: string | null }[];
+  accounts: { id: number; email: string; provider: "gmail" | "outlook"; sync_status: string; matched: number; processed: number; last_synced_at: string | null }[];
   unknowns: number;
 }

@@ -72,7 +72,7 @@ function Row({ r }: { r: RecordView }) {
     <Pressable onPress={() => router.push(`/record/${r.record_key}`)}>
       <Card>
         <View style={st.between}>
-          <Text style={st.merchant} numberOfLines={1}>{r.merchant.value ?? "Unknown merchant"}</Text>
+          <Text style={st.merchant} numberOfLines={1}>{r.merchant.value ?? "Unknown merchant"}{r.reference ? ` · ${r.reference}` : ""}</Text>
           <Text style={st.amount}>{money(r)}</Text>
         </View>
         <View style={[st.row, { marginTop: 4 }]}>
@@ -80,7 +80,7 @@ function Row({ r }: { r: RecordView }) {
           <Tag f={r.next_charge_date} />
         </View>
         <Text style={st.small}>
-          {STATE_LABEL[r.state]}{r.muted ? " · muted" : ""} · {r.source_accounts.join(", ")}
+          {STATE_LABEL[r.state]}{r.muted ? " · muted" : ""}{r.sources.includes("bank") ? " · bank alerts" : ""} · {r.source_accounts.join(", ")}
         </Text>
         {r.notices.includes("resubscribe_question") && <Text style={st.warn}>Charged again — did you re-subscribe?</Text>}
         {r.notices.includes("charged_while_pending") && <Text style={st.warn}>Charged although you cancelled</Text>}

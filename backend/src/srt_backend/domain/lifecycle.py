@@ -79,6 +79,8 @@ class RecordView(BaseModel):
     missed_date: Optional[dt.date] = None
     pending_receipt_at: Optional[dt.datetime] = None  # receipt the re-subscribe question is about
     source_accounts: list[str]
+    reference: Optional[str] = None  # plan / policy / account number when one merchant has several
+    sources: list[str] = Field(default_factory=list)  # "merchant" and/or "bank" (card alert e-mails)
     message_ids: list[str]
     flags: list[str]
     muted: bool = False
@@ -198,5 +200,6 @@ def compute(rec: SubscriptionRecord, us: UserRecordState, today: dt.date) -> Rec
         next_charge_date=nxt, trial_end_date=f["trial_end_date"], cancel_path=f["cancel_path"], state=state,
         alerts_enabled=state in ALERTING and nxt.known and not us.muted, notices=notices, missed_date=missed,
         pending_receipt_at=pending_receipt, source_accounts=rec.source_accounts, message_ids=rec.message_ids,
+        reference=rec.reference, sources=rec.sources,
         flags=rec.flags, muted=us.muted,
     )

@@ -90,4 +90,6 @@ def watch_due(account: GmailAccount, now: dt.datetime) -> bool:
     exp = account.watch_expires_at
     if exp and exp.tzinfo is None:
         exp = exp.replace(tzinfo=dt.timezone.utc)
-    return exp is None or exp - now < dt.timedelta(days=2)
+    # Gmail watches last 7 days (renew with < 2 left); Graph mail subscriptions ~3 days (renew with < 1 left).
+    margin = dt.timedelta(days=1) if getattr(account, "provider", "gmail") == "outlook" else dt.timedelta(days=2)
+    return exp is None or exp - now < margin

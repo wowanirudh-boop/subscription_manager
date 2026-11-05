@@ -72,7 +72,7 @@ def env(tmp_path, monkeypatch):
 def login(client, email, token=None, accepted=True):
     h = {"Authorization": f"Bearer {token}"} if token else {}
     return client.post("/v1/auth/google", headers=h, json={"server_auth_code": email,
-                       "disclosure_version": "gmail-disclosure-v1", "disclosure_accepted": accepted})
+                       "disclosure_version": "mail-disclosure-v2", "disclosure_accepted": accepted})
 
 
 def H(tok):
@@ -237,3 +237,118 @@ def test_new_receipt_without_alert_is_a_surprise_charge(env, tmp_path):  # M1, R
         events = [e for e in s.scalars(select(db.Event).where(db.Event.type == "surprise_charge"))]
     assert any(e.data.get("reason") == "no_alert_delivered" for e in events)
     assert by_merchant(client, tok)["StreamFlix"]["next_charge_date"]["value"] == "2027-01-05"
+
+
+# ---- Outlook (Microsoft Graph), push receipts ----------------------------------------------
+
+class FakeMsGateway:
+    def __init__(self):
+        self.revoked, self.watches = [], 0
+
+    def exchange_code(self, code, code_verifier, redirect_uri):
+        if code == "partial":
+            raise PartialGrant("Mail read access was not granted")
+        assert code_verifier and redirect_uri
+        return {"email": code, "token": {"access_token": "a", "refresh_token": "r", "expires_at": "2099-01-01T00:00:00+00:00"}}
+
+    def source_for(self, account):
+        return FixtureSource(FIXTURES, account.email)  # work@example.com fixtures stand in for an Outlook inbox
+
+    def start_watch(self, account):
+        self.watches += 1
+        return {"id": "sub-1", "expiration": "2026-11-08T00:00:00Z", "clientState": "secret-1"}
+
+    def revoke(self, account):
+        self.revoked.append(account.email)
+        return True
+
+
+def ms_login(client, email, token=None):
+    h = {"Authorization": f"Bearer {token}"} if token else {}
+    return client.post("/v1/auth/microsoft", headers=h, json={"code": email, "code_verifier": "v" * 43,
+                       "redirect_uri": "renewaltracker://auth", "disclosure_version": "mail-disclosure-v2",
+                       "disclosure_accepted": True})
+
+
+@pytest.fixture
+def env_ms(env, monkeypatch):
+    client, gw, delivery, clock = env
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://api.example")
+    config.reset_settings()
+    ms = FakeMsGateway()
+    client.app.state.deps.ms_gateway = ms
+    return client, gw, ms, delivery, clock
+
+
+def test_outlook_account_joins_gmail_user_and_merges(env_ms):  # D16 across providers
+    client, gw, ms, *_ = env_ms
+    assert ms_login(client, "partial").status_code == 403  # flow #8
+    tok = login(client, A).json()["session_token"]
+    out = ms_login(client, B, token=tok).json()
+    assert out["provider"] == "outlook"
+    recs = by_merchant(client, tok)
+    assert sorted(recs["VidMax"]["source_accounts"]) == [A, B]
+    me = client.get("/v1/me", headers=H(tok)).json()
+    assert {a["provider"] for a in me["accounts"]} == {"gmail", "outlook"}
+    assert ms.watches == 1  # Graph change subscription created after first sync (R3)
+    client.post(f"/v1/accounts/{out['account_id']}/disconnect", headers=H(tok))
+    assert ms.revoked == [B] and "TuneBox" not in by_merchant(client, tok)
+
+
+def test_graph_notification_handshake_and_client_state(env_ms):
+    client, gw, ms, *_ = env_ms
+    tok = login(client, A).json()["session_token"]
+    ms_login(client, B, token=tok)
+    r = client.post("/graph/notify?validationToken=abc123")
+    assert r.status_code == 200 and r.text == "abc123" and r.headers["content-type"].startswith("text/plain")
+    def syncs():
+        with db.session() as s:
+            return len(list(s.scalars(select(db.Event).where(db.Event.type == "sync"))))
+    n0 = syncs()
+    client.post("/graph/notify", json={"value": [{"subscriptionId": "sub-1", "clientState": "forged"}]})
+    assert syncs() == n0  # forged clientState is ignored
+    client.post("/graph/notify", json={"value": [{"subscriptionId": "sub-1", "clientState": "secret-1"}]})
+    assert syncs() == n0 + 1  # genuine notification triggers an incremental sync (R3)
+
+
+def test_push_receipts_promote_to_delivered(env):  # M5
+    client, gw, delivery, clock = env
+    tok = login(client, A).json()["session_token"]
+    client.post("/v1/push-tokens", headers=H(tok), json={"token": "ExponentPushToken[x]", "platform": "ios"})
+    clock.now = dt.datetime(2026, 11, 5, 3, 31, tzinfo=dt.timezone.utc)
+    client.post("/internal/tick", headers={"X-Internal-Token": "dev-internal"})
+    clock.now = dt.datetime(2026, 11, 5, 3, 50, tzinfo=dt.timezone.utc)
+    out = client.post("/internal/tick", headers={"X-Internal-Token": "dev-internal"}).json()
+    assert out["receipts"]["delivered"] >= 1
+    with db.session() as s:
+        assert s.scalar(select(db.Alert).where(db.Alert.channel == "push", db.Alert.status == "delivered")) is not None
+
+
+def test_card_alert_emails_reveal_a_silent_subscription(env, tmp_path):  # D4 amended: bank/card alert e-mails
+    import json as _j
+    client, gw, delivery, clock = env
+    rows, answers = [], []
+    for i, (d, human) in enumerate([("2026-08-08", "08-08-2026"), ("2026-09-08", "08-09-2026"), ("2026-10-08", "08-10-2026")]):
+        line = f"Rs.189.00 spent on your Credit Card XX1234 at GOOGLE*YOUTUBE on {human}."
+        rows.append({"message_id": f"bank-{i}", "account": "bank@example.com", "from_name": "HDFC Bank",
+                     "from_addr": "alerts@hdfcbank.example", "subject": "Alert: transaction on your credit card",
+                     "date": d + "T14:00:00+05:30", "body": f"Dear Customer,\n{line}\nNot you? Call us.", "truth": {}})
+        answers.append({"message_id": f"bank-{i}", "triage": True, "extraction": {
+            "is_subscription_related": True, "email_type": "card_transaction", "merchant": {"value": "GOOGLE*YOUTUBE", "quote": line},
+            "kind": {"value": None, "quote": None}, "billing_period": {"value": None, "period_months": None, "quote": None},
+            "amount": {"value": 189.0, "currency": "INR", "quote": line}, "charge_date": {"value": d, "quote": line},
+            "next_charge_date": {"value": None, "quote": None}, "trial_end_date": {"value": None, "quote": None},
+            "trial_length_days": {"value": None, "quote": None}, "cancel_path": {"value": None, "quote": None},
+            "reference": {"value": None, "quote": None}}})
+    fx, af = tmp_path / "bank.jsonl", tmp_path / "bank-answers.jsonl"
+    fx.write_text("".join(_j.dumps(r) + "\n" for r in rows))
+    af.write_text("".join(_j.dumps(a) + "\n" for a in answers))
+    gw.source_for = lambda account: FixtureSource(fx, account.email)
+    client.app.state.deps.provider_factory = lambda: ReplayProvider(af)
+    tok = login(client, "bank@example.com").json()["session_token"]
+    recs = client.get("/v1/records", headers=H(tok)).json()["records"]
+    assert len(recs) == 1
+    r = recs[0]
+    assert r["merchant"]["value"] == "GOOGLE*YOUTUBE" and r["state"] == "active"
+    assert r["billing_period"]["value"] == "monthly" and r["billing_period"]["state"] == "estimated"
+    assert r["next_charge_date"]["value"] == "2026-11-08" and r["next_charge_date"]["state"] == "estimated"

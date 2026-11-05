@@ -91,3 +91,36 @@ def test_pipeline_reads_attachment_when_body_has_no_amount(tmp_path):
     ex = res.extractions[0]
     assert res.traces[0].attachment_read and ex.amount.value == 1299 and ex.amount.state.value == "confirmed"
     assert "Attachment, page 1" in ex.amount.evidence.snippet or "₹1,299.00" in ex.amount.evidence.snippet
+
+
+def test_graph_source_contract():
+    import httpx
+    from srt_phase0.sources import GraphSource
+
+    def handler(req: httpx.Request):
+        p = req.url.path
+        assert req.headers["authorization"] == "Bearer tok"
+        if p.endswith("/me/messages"):
+            assert "received>=" in req.url.params["$search"]
+            return httpx.Response(200, json={"value": [{"id": "old", "receivedDateTime": "2026-01-01T00:00:00Z"},
+                                                       {"id": "new", "receivedDateTime": "2026-10-01T00:00:00Z"}]})
+        if p.endswith("/attachments"):
+            return httpx.Response(200, json={"value": [{"id": "a1", "name": "inv.pdf", "contentType": "application/pdf"}]})
+        if "prefer" in req.headers:
+            return httpx.Response(200, json={"body": {"contentType": "text", "content": "We charged ₹649."}, "hasAttachments": True})
+        return httpx.Response(200, json={"id": "new", "subject": "Receipt", "receivedDateTime": "2026-10-01T00:00:00Z",
+                                         "bodyPreview": "We charged", "from": {"emailAddress": {"name": "Shop", "address": "Bill@Shop.example"}}})
+
+    src = GraphSource(lambda: "tok", "me@outlook.com", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert list(src.search(["received>=2024-11-05 AND (subject:receipt)"])) == ["new", "old"]  # newest first
+    meta = src.metadata("new")
+    assert meta.from_addr == "bill@shop.example" and meta.body_text is None
+    full = src.full(meta)
+    assert full.body_text == "We charged ₹649." and full.attachment_names == ["inv.pdf"]
+
+
+def test_graph_queries_are_kql():
+    from srt_phase0.queries import build_graph_queries
+    q = build_graph_queries(dt.date(2026, 11, 5))
+    assert len(q) == 3 and q[0].startswith("received>=2024-11-05 AND (subject:receipt OR subject:invoice")
+    assert "subject:debited" in q[2]

@@ -7,7 +7,8 @@ Items marked **you** need your accounts, money or legal identity; I can't do the
 - [ ] **Apple Developer** (paid, for iOS builds and TestFlight) and **Google Play Console** (one-time fee) accounts.
 - [ ] **Expo account**, for EAS cloud builds and push notifications.
 - [ ] **OpenRouter key**, and the triage and extraction models chosen after a Phase 0 run on your inbox (Q2). This also needs `openrouter.ai` allowed in the build environment.
-- [ ] **E-mail sending provider** with SMTP credentials, for the T−1/T−0 e-mails (D13). Any provider that offers SMTP works.
+- [ ] **A mailbox to send alert e-mails from** (T−1/T−0, D13). The simplest option needs no new provider: a Gmail or Google Workspace account you own, with 2-step verification on and an **app password**. Use `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=` that address, `SMTP_PASSWORD=` the app password, and `MAIL_FROM=` the same address. Google caps sending at roughly 500/day (consumer) or 2,000/day (Workspace) (medium confidence), which is enough for ≤ 100 users × 2 e-mails/day. Switch to a dedicated provider before public launch.
+- [ ] **Microsoft account for Azure** (free), for Outlook/Hotmail support.
 
 ## 2. Google OAuth (you, in the Cloud console)
 1. **OAuth consent screen:** External, Testing mode, your beta testers added as test users (≤ 100 until verification), scope `gmail.readonly` only.
@@ -17,9 +18,16 @@ Items marked **you** need your accounts, money or legal identity; I can't do the
    - **iOS** client: bundle id. Its reversed client id is `GOOGLE_IOS_URL_SCHEME`.
 3. **Verification:** submit for verification and start the **CASA** assessment as soon as the beta works (PRD §13). Above 100 users the app must be verified. This needs the domain, privacy policy and Limited Use statement (D31), which haven't been built.
 
+## 2b. Microsoft sign-in, for Outlook / Hotmail (you, in the Azure portal)
+1. **App registration:** *App registrations → New*. Supported account types: **"Accounts in any organizational directory and personal Microsoft accounts"**.
+2. **Redirect URI:** platform **Mobile and desktop applications**, URI `renewaltracker://auth`. It's a public client, so there's no secret: the app uses PKCE.
+3. **API permissions** (Microsoft Graph, delegated): `Mail.Read`, `User.Read`, `offline_access`, `openid`, `email`. Nothing that can send or modify mail.
+4. Copy the **Application (client) ID**. It goes into `MICROSOFT_CLIENT_ID` (backend) and `EXPO_PUBLIC_MICROSOFT_CLIENT_ID` (app).
+5. **Publisher verification** (Microsoft's equivalent of Google verification) is needed before users outside your tenant see a trusted consent screen. Start it alongside Google's.
+
 ## 3. Backend (scripted)
 ```bash
-export PROJECT_ID=... GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... \
+export PROJECT_ID=... GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... MICROSOFT_CLIENT_ID=... \
        OPENROUTER_API_KEY=... OPENROUTER_TRIAGE_MODEL=... OPENROUTER_EXTRACT_MODEL=... \
        SMTP_HOST=... SMTP_USER=... SMTP_PASSWORD=... MAIL_FROM=alerts@yourdomain
 ./deploy/gcp-setup.sh
@@ -37,7 +45,7 @@ The script prints the service URL.
 ## 4. App (scripted, after 2 and 3)
 ```bash
 cd mobile && npx eas-cli@latest init          # links the project; sets EAS_PROJECT_ID
-# In EAS environment variables: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_URL_SCHEME,
+# In EAS environment variables: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, EXPO_PUBLIC_MICROSOFT_CLIENT_ID, GOOGLE_IOS_URL_SCHEME,
 # IOS_BUNDLE_ID, ANDROID_PACKAGE, EAS_PROJECT_ID
 npx eas-cli@latest build --profile beta --platform all
 ```
@@ -45,5 +53,5 @@ Google Sign-In uses native code, so it **doesn't run in Expo Go**. Testers need 
 
 ## 5. Before inviting testers
 - [ ] Phase 0 run with the chosen OpenRouter model, scored against your review (A3 gate).
-- [ ] One end-to-end check on a real phone: connect Gmail → list appears → alert arrives at 09:00 IST, by push and by e-mail.
+- [ ] One end-to-end check on a real phone: connect Gmail **and** Outlook → list appears (including bank-alert subscriptions) → alert arrives at 09:00 IST, by push and by e-mail.
 - [ ] Privacy policy and Limited Use statement published on your domain (R10, Google policy).

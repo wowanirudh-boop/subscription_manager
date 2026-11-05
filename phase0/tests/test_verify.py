@@ -136,6 +136,6 @@ def test_not_related_has_no_fields():
 
 
 def test_rupee_colon_format():
-    body = "We acknowledge the receipt of Rs:450 towards ACT Fibernet Account No 900011112222 on 01/11/2026."
+    body = "We acknowledge the receipt of Rs:450 towards Example Broadband Account No 900011112222 on 01/11/2026."
     ex = verify(raw(amount=QuotedAmount(value=450, currency="INR", quote=body)), make_msg(body))
     assert ex.amount.value == 450 and ex.currency.value == "INR"

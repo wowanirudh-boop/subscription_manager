@@ -18,6 +18,10 @@ class Settings:
     # Google OAuth "web" client used to exchange the app's server auth code (D8: our own OAuth app).
     google_client_id: str = field(default_factory=lambda: _env("GOOGLE_OAUTH_CLIENT_ID"))
     google_client_secret: str = field(default_factory=lambda: _env("GOOGLE_OAUTH_CLIENT_SECRET"))
+    # Microsoft (Outlook.com / Hotmail / Microsoft 365): public "mobile" app registration, PKCE.
+    microsoft_client_id: str = field(default_factory=lambda: _env("MICROSOFT_CLIENT_ID"))
+    microsoft_tenant: str = field(default_factory=lambda: _env("MICROSOFT_TENANT", "common"))
+    public_base_url: str = field(default_factory=lambda: _env("PUBLIC_BASE_URL"))  # for Graph change notifications
     # Token encryption (R10): Cloud KMS key in production, local Fernet key in development.
     kms_key_name: str = field(default_factory=lambda: _env("KMS_KEY_NAME"))
     local_token_key: str = field(default_factory=lambda: _env("LOCAL_TOKEN_KEY"))
@@ -36,7 +40,7 @@ class Settings:
     smtp_user: str = field(default_factory=lambda: _env("SMTP_USER"))
     smtp_password: str = field(default_factory=lambda: _env("SMTP_PASSWORD"))
     mail_from: str = field(default_factory=lambda: _env("MAIL_FROM", "alerts@example.invalid"))
-    disclosure_version: str = "gmail-disclosure-v1"
+    disclosure_version: str = "mail-disclosure-v2"  # v2: Outlook + bank/card alert e-mails
     region: str = field(default_factory=lambda: _env("REGION", "asia-south1"))  # R9: India
 
 

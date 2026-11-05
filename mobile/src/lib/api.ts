@@ -5,7 +5,7 @@ import type { Me, Period, RecordView } from "./types";
 
 const API = (Constants.expoConfig?.extra as { apiUrl: string } | undefined)?.apiUrl ?? "http://localhost:8000";
 const KEY = "srt.session";
-export const DISCLOSURE_VERSION = "gmail-disclosure-v1";
+export const DISCLOSURE_VERSION = "mail-disclosure-v2"; // v2: Outlook + bank/card alert e-mails
 
 // One app session id: a skipped unknowns card returns no sooner than the next session (R6).
 export const SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -39,6 +39,11 @@ export const api = {
   connectGmail: (serverAuthCode: string) =>
     call<{ session_token: string; account_id: number; email: string }>("POST", "/v1/auth/google", {
       server_auth_code: serverAuthCode, disclosure_version: DISCLOSURE_VERSION, disclosure_accepted: true,
+    }),
+  connectOutlook: (code: string, codeVerifier: string, redirectUri: string) =>
+    call<{ session_token: string; account_id: number; email: string }>("POST", "/v1/auth/microsoft", {
+      code, code_verifier: codeVerifier, redirect_uri: redirectUri,
+      disclosure_version: DISCLOSURE_VERSION, disclosure_accepted: true,
     }),
   me: () => call<Me>("GET", "/v1/me"),
   records: () => call<{ records: RecordView[]; unknowns: number }>("GET", "/v1/records"),
