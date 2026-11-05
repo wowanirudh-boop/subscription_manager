@@ -87,3 +87,22 @@ def test_list_sorted_with_unknowns_last():
         ex("r", "a@x", "2026-10-01T00:00:00+00:00", merchant="DomainHub", nxt=dt.date(2026, 12, 12)),
     ])
     assert [r.merchant.value for r in recs] == ["DomainHub", "PixelForge"]
+
+
+def test_monthly_progression_does_not_flag():
+    recs = merge([
+        ex("r1", "a@x", "2026-08-16T00:00:00+00:00", amount=100, charge=dt.date(2026, 8, 16), nxt=dt.date(2026, 9, 16)),
+        ex("r2", "a@x", "2026-09-16T00:00:00+00:00", amount=100, charge=dt.date(2026, 9, 16), nxt=dt.date(2026, 10, 16)),
+    ])
+    assert recs[0].next_charge_date.value == dt.date(2026, 10, 16)
+    assert recs[0].flags == []
+
+
+def test_stale_next_date_is_rederived_after_later_charge():
+    recs = merge([
+        ex("bill", "a@x", "2026-10-01T00:00:00+00:00", amount=450, nxt=dt.date(2026, 10, 15), period="monthly"),
+        ex("paid", "a@x", "2026-11-01T00:00:00+00:00", amount=450, charge=dt.date(2026, 11, 1)),
+    ])
+    r = recs[0]
+    assert r.next_charge_date.value == dt.date(2026, 12, 1) and r.next_charge_date.state == FieldState.ESTIMATED
+    assert any("superseded" in f for f in r.flags)

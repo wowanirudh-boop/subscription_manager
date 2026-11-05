@@ -40,3 +40,11 @@ def test_queries_cover_24_months():
 def test_ambiguous_numeric_date_returns_both_readings():
     ds = {d for d, _ in find_dates("due 03/04/2026")}
     assert ds == {dt.date(2026, 4, 3), dt.date(2026, 3, 4)}
+
+
+def test_cli_queries_command(capsys):
+    from srt_phase0.cli import main
+
+    main(["queries", "--today", "2026-11-04"])
+    out = capsys.readouterr().out
+    assert "after:2024/11/04" in out and out.count("after:") == 2

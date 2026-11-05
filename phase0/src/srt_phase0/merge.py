@@ -54,6 +54,9 @@ def _key(ex: Extraction) -> str:
     return "domain:" + ex.sender.rsplit("@", 1)[-1]
 
 
+_PROGRESSING_DATES = ("last_charge_date", "next_charge_date", "trial_end_date")
+
+
 def _apply(cur: FieldValue, new: FieldValue, when: dt.datetime, name: str, flags: list[str]) -> FieldValue:
     if not new.known:
         return cur
@@ -62,6 +65,8 @@ def _apply(cur: FieldValue, new: FieldValue, when: dt.datetime, name: str, flags
     # current is confirmed
     if new.value == cur.value:
         return new if new.state == FieldState.CONFIRMED else cur
+    if name in _PROGRESSING_DATES and new.value > cur.value:
+        return new  # normal progression (next month's charge), not a contradiction
     if new.state == FieldState.CONFIRMED:
         flags.append(f"{name} changed from {cur.value} to {new.value} ({when.date().isoformat()})")
         return new
@@ -121,8 +126,13 @@ def merge(extractions: Iterable[Extraction]) -> list[SubscriptionRecord]:
             if trial_seen:
                 flags.append("trial appears to have converted (receipt after trial sign-up)")
 
-        # Re-derive the next date from the latest charge when it isn't confirmed.
+        # A next date on or before the latest charge has been superseded by that charge.
         lc, bp = f["last_charge_date"], f["billing_period"]
+        stale = f["next_charge_date"].known and lc.known and f["next_charge_date"].value <= lc.value
+        if stale:
+            flags.append(f"next charge {f['next_charge_date'].value} superseded by charge on {lc.value}")
+            f["next_charge_date"] = FieldValue()
+        # Re-derive the next date from the latest charge when it isn't confirmed.
         if f["next_charge_date"].state != FieldState.CONFIRMED and lc.known and bp.known:
             nxt = add_period(lc.value, bp.value, period_months)
             if nxt and (not f["next_charge_date"].known or nxt > f["next_charge_date"].value):

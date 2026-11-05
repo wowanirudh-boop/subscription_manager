@@ -223,7 +223,11 @@ def main(argv=None) -> None:
     jc.add_argument("--run", required=True)
     jc.set_defaults(func=cmd_judge_check)
 
-    pg = sub.add_parser("purge",help="delete judge batches (and, by default, runs and templates)")
+    qy = sub.add_parser("queries", help="print the stage-1 Gmail search queries")
+    qy.add_argument("--today")
+    qy.set_defaults(func=cmd_queries)
+
+    pg = sub.add_parser("purge", help="delete judge batches (and, by default, runs and templates)")
     pg.add_argument("--judge-only", action="store_true")
     pg.set_defaults(func=cmd_purge)
 

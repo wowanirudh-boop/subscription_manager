@@ -133,3 +133,9 @@ def test_not_related_has_no_fields():
     r = RawExtraction(is_subscription_related=False, amount=QuotedAmount(value=649, quote="We charged ₹649"))
     ex = verify(r, make_msg(BODY))
     assert not ex.amount.known
+
+
+def test_rupee_colon_format():
+    body = "We acknowledge the receipt of Rs:450 towards ACT Fibernet Account No 900011112222 on 01/11/2026."
+    ex = verify(raw(amount=QuotedAmount(value=450, currency="INR", quote=body)), make_msg(body))
+    assert ex.amount.value == 450 and ex.currency.value == "INR"

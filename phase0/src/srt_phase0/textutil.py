@@ -52,6 +52,7 @@ _DATE_PATTERNS = [
 CURRENCY_SYMBOLS = {
     "₹": "INR",
     "rs.": "INR",
+    "rs:": "INR",
     "rs": "INR",
     "inr": "INR",
     "$": "USD",
@@ -65,7 +66,7 @@ CURRENCY_SYMBOLS = {
     "aed": "AED",
 }
 _AMOUNT = re.compile(
-    r"(?P<cur>₹|rs\.?|inr|us\$|\$|€|£|usd|eur|gbp|sgd|aed)\s?(?P<num>\d+(?:,\d{2,3})*(?:\.\d{1,2})?(?![\d]))"
+    r"(?P<cur>₹|rs[.:]?|inr|us\$|\$|€|£|usd|eur|gbp|sgd|aed)\s?(?P<num>\d+(?:,\d{2,3})*(?:\.\d{1,2})?(?![\d]))"
     r"|(?P<num2>\d+(?:,\d{2,3})*(?:\.\d{1,2})?(?![\d]))\s?(?P<cur2>inr|usd|eur|gbp|sgd|aed)\b",
     re.I,
 )
