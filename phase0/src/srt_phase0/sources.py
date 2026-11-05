@@ -32,6 +32,9 @@ class EmailSource(Protocol):
     def full(self, msg: EmailMessage) -> EmailMessage:
         """Return ``msg`` with body_text populated."""
 
+    def attachment_text(self, msg: EmailMessage) -> Optional[str]:
+        """First-page text of a PDF attachment (decision #6), or None."""
+
 
 # ---- fixtures ------------------------------------------------------------------------
 
@@ -76,6 +79,9 @@ class FixtureSource:
 
     def full(self, msg: EmailMessage) -> EmailMessage:
         return msg.model_copy(update={"body_text": self._by_id[msg.message_id]["body"]})
+
+    def attachment_text(self, msg: EmailMessage) -> Optional[str]:
+        return self._by_id[msg.message_id].get("attachment_text")
 
 
 # ---- Gmail ---------------------------------------------------------------------------
@@ -139,7 +145,18 @@ class GmailSource:
         plain, html_parts, attachments = [], [], []
         _walk(m.get("payload", {}), plain, html_parts, attachments)
         body = "\n".join(plain).strip() or html_to_text("\n".join(html_parts))
+        pdfs = _pdf_parts(m.get("payload", {}))
+        self._local.pdfs = getattr(self._local, "pdfs", {})
+        self._local.pdfs[msg.message_id] = pdfs
         return msg.model_copy(update={"body_text": body, "attachment_names": attachments})
+
+    def attachment_text(self, msg: EmailMessage) -> Optional[str]:
+        """Flow decision #6: first page of the first PDF attachment, only fetched on demand."""
+        pdfs = getattr(self._local, "pdfs", {}).get(msg.message_id) or []
+        if not pdfs:
+            return None
+        att = self._svc.users().messages().attachments().get(userId="me", messageId=msg.message_id, id=pdfs[0]).execute()
+        return pdf_first_page_text(base64.urlsafe_b64decode(att["data"] + "=" * (-len(att["data"]) % 4)))
 
     def _to_message(self, m: dict) -> EmailMessage:
         headers = {h["name"].lower(): h["value"] for h in m.get("payload", {}).get("headers", [])}
@@ -154,6 +171,32 @@ class GmailSource:
             message_id=m["id"], account=self.account, thread_id=m.get("threadId"), from_addr=addr or "unknown@unknown",
             from_name=name, subject=headers.get("subject", ""), date=date, snippet=m.get("snippet", ""),
         )
+
+
+def _pdf_parts(part: dict) -> list[str]:
+    out = []
+    name = (part.get("filename") or "").lower()
+    if (part.get("mimeType") == "application/pdf" or name.endswith(".pdf")) and part.get("body", {}).get("attachmentId"):
+        out.append(part["body"]["attachmentId"])
+    for p in part.get("parts", []) or []:
+        out += _pdf_parts(p)
+    return out
+
+
+def pdf_first_page_text(data: bytes, max_chars: int = 4000) -> Optional[str]:
+    """Text of page 1 only (decision #6). Encrypted or image-only PDFs return None."""
+    import io
+
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        if reader.is_encrypted or not reader.pages:
+            return None
+        text = (reader.pages[0].extract_text() or "").strip()
+        return text[:max_chars] or None
+    except Exception:  # noqa: BLE001 - malformed attachments are skipped, never fatal
+        return None
 
 
 def _decode(data: str) -> str:

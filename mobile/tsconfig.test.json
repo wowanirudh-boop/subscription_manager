@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true, "outDir": ".test-build", "rootDir": ".", "types": ["node"], "skipLibCheck": true },
+  "include": ["src/lib/format.ts", "src/lib/types.ts", "tests/*.ts"]
+}

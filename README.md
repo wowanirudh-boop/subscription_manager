@@ -2,7 +2,7 @@
 
 An early-stage product concept to help people discover recurring subscriptions and trials, understand upcoming charges, and act before unwanted renewals.
 
-> **Status:** Phase 0 (feasibility). The [Phase 0 pipeline](phase0/README.md) is built and tested on **synthetic data only**; it has not yet been run on a real inbox. There is no app. The flow diagram is v0.1 and is still **awaiting sign-off**.
+> **Status:** Phase 1 built for a private beta. Phase 0 ran on the founder's real inbox (24 months, Claude as extractor). The [backend](backend/README.md) (35 tests, SQLite and PostgreSQL) and the [iOS/Android app](mobile/README.md) (typechecked, Android bundle built) exist. **Not yet deployed:** see the [launch checklist](deploy/README.md). The cheap production model hasn't been measured yet.
 
 ## What's in this repository
 
@@ -13,7 +13,10 @@ An early-stage product concept to help people discover recurring subscriptions a
 | [Competitor research](docs/competitor-research.md) | September 2026 competitor landscape and strategic takeaways | Archived snapshot; not refreshed |
 | [Flow review guide](docs/flow-review.md) | Navigation for the flow diagram and eight decisions requiring sign-off | Working draft |
 | [Flow diagram v0.1](artifacts/flow-diagram-v0-1.html) | Original, self-contained interactive HTML flow | Original artifact; awaiting sign-off |
-| [Phase 0 pipeline](phase0/README.md) | Gmail search → triage → extraction → per-sender templates, plus judge and scorer for assumption A3 | Built; synthetic tests only |
+| [Phase 0 pipeline](phase0/README.md) | Gmail search → triage → extraction → per-sender templates, plus judge and scorer for assumption A3 | Built; run on founder inbox (dev mode) |
+| [Backend](backend/README.md) | FastAPI service: accounts, lifecycle, alerts, Gmail push, data controls (R1–R10) | Built; 35 tests |
+| [Mobile app](mobile/README.md) | Expo / React Native iOS + Android app | Built; typechecked, bundled |
+| [Launch checklist](deploy/README.md) | GCP Mumbai setup script, OAuth, EAS builds | Ready to run; needs founder accounts |
 
 Open `artifacts/flow-diagram-v0-1.html` in a browser to review the flows. It covers account connection, first sync, detection, merging, unknown fields, alerts, cancellation/reactivation, ongoing detection, and deletion.
 
@@ -36,8 +39,7 @@ The [competitor research](docs/competitor-research.md) has now been migrated fro
 
 ## Next steps
 
-1. Run Phase 0 on the founder inbox: set up the [Gmail OAuth client](phase0/docs/gmail-oauth-setup.md) and an OpenRouter key, then follow the [Phase 0 README](phase0/README.md).
-2. Review and resolve the [eight flow sign-off questions](docs/flow-review.md).
-3. Refresh time-sensitive competitor claims before using them for launch or positioning decisions.
-4. Validate the target-user and Gmail-only assumptions with potential users.
-5. Convert approved flows into implementation requirements and tests.
+1. Work through the [launch checklist](deploy/README.md): Google OAuth clients, the GCP deploy script, EAS builds.
+2. Measure the cheap production model: Phase 0 with an OpenRouter model (needs openrouter.ai allowed) to settle Q2 and M8.
+3. Publish the privacy policy and Limited Use statement, then start Google verification and CASA (needed above 100 users).
+4. Refresh time-sensitive competitor claims before using them for launch or positioning decisions.

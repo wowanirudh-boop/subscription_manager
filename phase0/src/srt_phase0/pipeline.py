@@ -37,6 +37,7 @@ class MessageTrace(BaseModel):
     triage_relevant: Optional[bool] = None
     stage: Optional[str] = None  # stage4 | stage5 | None (stopped at triage)
     template_fallback: bool = False
+    attachment_read: bool = False
     related: Optional[bool] = None
     error: Optional[str] = None
     seconds: float = 0.0
@@ -139,6 +140,16 @@ class Pipeline:
                 )
                 ex = verify(raw, full, stage="stage4")
                 trace.stage = "stage4"
+                if ex.attachment_skipped and hasattr(src, "attachment_text"):
+                    att = src.attachment_text(full)
+                    if att:  # decision #6: read page 1 of the PDF only when the body has no amount
+                        full = full.model_copy(update={"body_text": f"{full.body_text}\n\n[Attachment, page 1]\n{att}"})
+                        raw = self.provider.extract(ExtractInput(
+                            message_id=full.message_id, sender=full.from_addr, sender_name=full.from_name,
+                            subject=full.subject, sent_date=full.date.date().isoformat(),
+                            body=truncate_tokens(full.body_text or "", self.max_body_tokens)))
+                        ex = verify(raw, full, stage="stage4")
+                        trace.attachment_read = True
                 learned = SenderTemplate.learn(full, ex, raw)
                 if learned:
                     with self._lock:

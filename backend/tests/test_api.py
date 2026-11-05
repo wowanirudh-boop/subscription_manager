@@ -49,13 +49,22 @@ class Clock:
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
+    import os
+    url = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{tmp_path}/t.db"  # set to a Postgres URL to test that engine
+    monkeypatch.setenv("DATABASE_URL", url)
+    if url.startswith("postgresql"):
+        from sqlalchemy import create_engine
+        from srt_backend.db import Base
+        eng = create_engine(url)
+        Base.metadata.drop_all(eng)
+        eng.dispose()
     config.reset_settings()
     security.set_cipher(security.LocalCipher())
     gw, delivery, clock = FakeGateway(), FakeDelivery(), Clock()
     app = create_app(Deps(gw, delivery, lambda: ReplayProvider(ANSWERS), clock))
     client = TestClient(app)
     yield client, gw, delivery, clock
+    db.drop_all()
     security.set_cipher(None)
     config.reset_settings()
 

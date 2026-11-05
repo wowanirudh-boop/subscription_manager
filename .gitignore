@@ -15,3 +15,6 @@ phase0/data/
 node_modules/
 .expo/
 mobile/dist/
+
+# Python build artifacts
+build/

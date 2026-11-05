@@ -161,3 +161,10 @@ def init(url: str) -> None:
 def session() -> Session:
     assert _Session is not None, "db.init() not called"
     return _Session()
+
+
+def drop_all() -> None:
+    """Tests only."""
+    if _engine is not None:
+        Base.metadata.drop_all(_engine)
+        _engine.dispose()
