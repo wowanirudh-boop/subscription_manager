@@ -8,3 +8,10 @@ __pycache__/
 # Never commit (R9, Google API user-data policy).
 data/
 phase0/data/
+
+# Backend dev database
+*.db
+# Mobile
+node_modules/
+.expo/
+mobile/dist/

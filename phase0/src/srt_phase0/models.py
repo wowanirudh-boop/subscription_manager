@@ -138,6 +138,10 @@ class SubscriptionRecord(BaseModel):
     lifecycle_state: Lifecycle
     message_ids: list[str]
     flags: list[str] = Field(default_factory=list)  # e.g. confirmed value contradicted by a newer email
+    period_months: Optional[int] = None
+    last_receipt_at: Optional[dt.datetime] = None  # newest receipt e-mail (any account)
+    last_cancel_at: Optional[dt.datetime] = None  # newest merchant cancellation e-mail
+    first_seen_at: Optional[dt.datetime] = None
 
 
 # ---- Judge labels -------------------------------------------------------------------

@@ -158,9 +158,18 @@ class Pipeline:
         finally:
             trace.seconds = round(time.monotonic() - start, 3)
 
-    def run(self, sources: Iterable[EmailSource], today: Optional[dt.date] = None) -> RunResult:
+    def run(
+        self,
+        sources: Iterable[EmailSource],
+        today: Optional[dt.date] = None,
+        queries: Optional[list[str]] = None,
+        skip_ids: Optional[set[str]] = None,
+    ) -> RunResult:
+        """``queries`` overrides the stage-1 query set (incremental sync uses an ``after:`` bound);
+        ``skip_ids`` are message ids already processed for this user."""
         today = today or dt.date.today()
-        queries = build_queries(today)
+        queries = queries or build_queries(today)
+        skip_ids = skip_ids or set()
         stats = RunStats(provider=self.provider.name)
         traces: list[MessageTrace] = []
         extractions: list[Extraction] = []
@@ -170,7 +179,8 @@ class Pipeline:
         with ThreadPoolExecutor(max_workers=max(1, self.concurrency)) as pool:
             for src in sources:
                 stats.accounts.append(src.account)
-                futures = [pool.submit(self._process, src, mid, stats, t0) for mid in src.search(queries)]
+                futures = [pool.submit(self._process, src, mid, stats, t0)
+                           for mid in src.search(queries) if mid not in skip_ids]
                 for fut in futures:  # submission order = newest first
                     trace, ex = fut.result()
                     traces.append(trace)

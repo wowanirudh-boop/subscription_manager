@@ -11,6 +11,7 @@ relying on edge cases):
 from __future__ import annotations
 
 import datetime as dt
+from typing import Optional
 
 from dateutil.relativedelta import relativedelta
 
@@ -74,3 +75,16 @@ SUBJECT_TERMS_V2 = (
 def build_queries_v2(today: dt.date, months: int = 24) -> list[str]:
     after = (today - relativedelta(months=months)).strftime("%Y/%m/%d")
     return [f"after:{after} subject:({SUBJECT_TERMS_V2}) -category:social"]
+
+
+def build_app_queries(today: dt.date, months: int = 24, after_epoch: Optional[int] = None) -> list[str]:
+    """Phase 1 stage-1 set ("q3"): q2 subject query + q1 sender-pattern query.
+
+    The real-inbox run showed q2 alone misses merchant mail whose subject lacks
+    the keywords; the sender patterns recover part of that. ``after_epoch``
+    (unix seconds) bounds incremental syncs after a Gmail push notification.
+    """
+    bound = f"after:{after_epoch}" if after_epoch else "after:" + (today - relativedelta(months=months)).strftime("%Y/%m/%d")
+    senders = "{" + " ".join(SENDER_PATTERNS) + "}"
+    return [f"{bound} subject:({SUBJECT_TERMS_V2}) -category:social",
+            f"{bound} {senders} " + " ".join(EXCLUSIONS)]

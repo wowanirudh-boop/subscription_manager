@@ -294,6 +294,16 @@ class TemplateStore:
         items[:] = [x for x in items if similarity(set(x.skeleton), set(t.skeleton)) < SIMILARITY_THRESHOLD]
         items.append(t)
 
+    def to_json(self) -> str:
+        return json.dumps({s: [t.model_dump(mode="json") for t in ts] for s, ts in self.by_sender.items()})
+
+    @classmethod
+    def from_json(cls, data: Optional[str]) -> "TemplateStore":
+        store = cls()
+        for sender, items in (json.loads(data) if data else {}).items():
+            store.by_sender[sender] = [SenderTemplate.model_validate(i) for i in items]
+        return store
+
     def save(self) -> None:
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)

@@ -167,6 +167,10 @@ def merge(extractions: Iterable[Extraction]) -> list[SubscriptionRecord]:
                 lifecycle_state=state,
                 message_ids=[e.message_id for e in exs],
                 flags=flags,
+                period_months=period_months,
+                last_receipt_at=last_receipt,
+                last_cancel_at=last_cancel,
+                first_seen_at=exs[0].email_date,
             )
         )
     # R5: sorted by next_charge_date, unknowns last.
