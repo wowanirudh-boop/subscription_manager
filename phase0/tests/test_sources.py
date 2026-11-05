@@ -48,3 +48,7 @@ def test_cli_queries_command(capsys):
     main(["queries", "--today", "2026-11-04"])
     out = capsys.readouterr().out
     assert "after:2024/11/04" in out and out.count("after:") == 2
+
+
+def test_indian_biller_two_digit_year():
+    assert {d for d, _ in find_dates("Due Date: 15-MAY-26 Due Amount: 450")} == {dt.date(2026, 5, 15)}

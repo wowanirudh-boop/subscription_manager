@@ -46,7 +46,8 @@ _DATE_PATTERNS = [
     # 2026-03-05
     re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b"),
     # 05/03/2026 or 05-03-2026 or 05.03.2026 (ambiguous day/month order)
-    re.compile(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b"),
+    re.compile(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b"),    # 15-MAY-26 (Indian biller style, two-digit year read as 20yy)
+    re.compile(rf"\b(\d{{1,2}})-{_MON}-(\d{{2}})\b", re.I),
 ]
 
 CURRENCY_SYMBOLS = {
@@ -101,9 +102,11 @@ def find_dates(text: str) -> list[tuple[dt.date, str]]:
                 cands = [(int(g[2]), MONTHS[g[0].lower().rstrip(".")], int(g[1]))]
             elif i == 2:
                 cands = [(int(g[0]), int(g[1]), int(g[2]))]
-            else:
+            elif i == 3:
                 a, b, y = int(g[0]), int(g[1]), int(g[2])
                 cands = [(y, b, a), (y, a, b)]  # day-first first (India default)
+            else:
+                cands = [(2000 + int(g[2]), MONTHS[g[1].lower().rstrip(".")], int(g[0]))]
             for y, mo, d in cands:
                 try:
                     date = dt.date(y, mo, d)
